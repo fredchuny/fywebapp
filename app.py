@@ -29,12 +29,12 @@ options = {
     3: "3 - 幾乎天天"
 }
 
-# 完整 PHQ-9 九道題目（改用單選鈕呈現）
+# 完整 PHQ-9 九道題目（單選鈕水平排列）
 q1_score = st.radio("1. 做任何事情都提不起勁或沒有樂趣", options=list(options.keys()), format_func=lambda x: options[x], horizontal=True)
 q2_score = st.radio("2. 感到心情低落、沮喪或絕望", options=list(options.keys()), format_func=lambda x: options[x], horizontal=True)
 q3_score = st.radio("3. 入睡困難、睡不安穩或睡太多", options=list(options.keys()), format_func=lambda x: options[x], horizontal=True)
 q4_score = st.radio("4. 感到疲倦或沒有活力", options=list(options.keys()), format_func=lambda x: options[x], horizontal=True)
-st.write("---") # 加上分隔線，方便閱讀
+st.write("---")
 q5_score = st.radio("5. 食慾不振或吃得太多", options=list(options.keys()), format_func=lambda x: options[x], horizontal=True)
 q6_score = st.radio("6. 覺得自己很糟、覺得自己很失敗，或讓家人失望", options=list(options.keys()), format_func=lambda x: options[x], horizontal=True)
 q7_score = st.radio("7. 專注事情有困難，例如看報紙或看電視時", options=list(options.keys()), format_func=lambda x: options[x], horizontal=True)
@@ -47,7 +47,7 @@ q_list = [q1_score, q2_score, q3_score, q4_score, q5_score, q6_score, q7_score, 
 total_score = sum(q_list)
 
 st.write("---")
-st.write(f"### 📊 目前累計總分：**{total_score} 分**")
+st.write(f"### 📊 目前評估總分：**{total_score} 分**")
 
 # 根據總分給予初步的臨床提示
 if total_score >= 20:
@@ -63,7 +63,7 @@ else:
 
 st.write("---")
 
-# 送出按鈕
+# 送出問卷按鈕
 if st.button("確認送出並上傳雲端"):
     if not user_id or not full_name:
         st.error("❌ 請填寫 ID 與姓名！")
@@ -82,6 +82,50 @@ if st.button("確認送出並上傳雲端"):
             }
             supabase.table("phq9_responses").insert(response_data).execute()
             
-            st.success(f"🎉 成功！9 題數據已完整寫入雲端。使用者：{full_name}，總分：{total_score} 分。")
+            st.success(f"🎉 成功！數據已完整寫入雲端。使用者：{full_name}，總分：{total_score} 分。")
         except Exception as e:
             st.error(f"寫入失敗：{e}")
+
+
+# ==================================================================
+# 🔍 歷史紀錄查詢區塊 (新增功能)
+# ==================================================================
+st.write("## 🔍 歷史結果查詢")
+st.caption("輸入上方的使用者 ID 後，點擊下方按鈕即可撈取雲端歷史病歷")
+
+if st.button("查看我的歷史評估紀錄"):
+    if not user_id:
+        st.error("❌ 請先在上方「請輸入使用者 ID」欄位填入您的 ID 才能查詢！")
+    else:
+        try:
+            with st.spinner("正在從雲端資料庫撈取資料..."):
+                # 這裡使用了我們之前在 Colab 驗證成功的 desc=False 語法
+                response = supabase.table("phq9_responses") \
+                                   .select("created_at, total_score") \
+                                   .eq("user_id", user_id) \
+                                   .order("created_at", desc=False) \
+                                   .execute()
+            
+            if response.data:
+                st.success(f"🎉 成功找到該用戶的 {len(response.data)} 筆歷史紀錄：")
+                
+                # 用極簡、直覺的方式一筆一筆印出結果
+                for index, record in enumerate(response.data, 1):
+                    # 格式化雲端時間戳記 (移除毫秒，讓畫面乾淨)
+                    clean_date = record['created_at'].split('.')[0].replace('T', ' ')
+                    score = record['total_score']
+                    
+                    # 根據當時的分數標示嚴重度顏色
+                    if score >= 15:
+                        status = "🔴 中重度/重度"
+                    elif score >= 10:
+                        status = "🟡 中度"
+                    else:
+                        status = "🟢 輕微/良好"
+                        
+                    st.write(f"**第 {index} 次紀錄** | 📅 時間: `{clean_date}` | 📊 總分: **{score} 分** ({status})")
+            else:
+                st.info(f"查無此 ID (`{user_id}`) 的歷史紀錄。試著先在上方提交一筆問卷吧！")
+                
+        except Exception as e:
+            st.error(f"撈取資料失敗，錯誤訊息：{e}")
