@@ -51,7 +51,6 @@ def logout():
         pass
     st.session_state.user = None
     st.session_state.current_page = "quiz"
-    st.rerun()
 
 # 評級邏輯
 def get_severity(score):
