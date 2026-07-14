@@ -3,6 +3,7 @@ from supabase import create_client, Client
 import datetime
 import pytz
 import pandas as pd
+import random
 
 # =========================================================================
 # 臨床輔助函式
@@ -26,7 +27,7 @@ if "user" not in st.session_state: st.session_state.user = None
 if "permissions" not in st.session_state: st.session_state.permissions = {}
 if "current_page" not in st.session_state: st.session_state.current_page = "login"
 
-# 多國語言字典設定 (新增飲水與子彈筆記模組翻譯)
+# 多國語言字典設定
 lang_options = ["繁體中文 (Traditional Chinese)", "English"]
 selected_lang = st.selectbox("🌐 Language / 語言", options=lang_options, index=0)
 lang = "zh" if selected_lang == lang_options[0] else "en"
@@ -47,9 +48,10 @@ t = {
         "btn_phq9": "📝 進入 PHQ-9 臨床評估系統",
         "btn_water": "💧 進入 每日飲水追蹤系統",
         "btn_bujo": "📓 進入 子彈筆記隨手隨筆",
+        "btn_food": "🍱 進入 今日美食決策抽獎機",
         "btn_gad7": "📊 進入 GAD-7 焦慮評估系統 (未來擴充)",
         "btn_analytics": "📈 進入 機構數據分析後台 (未來擴充)",
-        "no_perm": "⚠️ 您的帳號目前尚未指派 any 功能模組。請聯絡管理員幫您開啟權限喔！",
+        "no_perm": "⚠️ 您的帳號目前尚未指派權限。請聯絡管理員幫您開啟權限喔！",
         "btn_back_dash": "⬅️ 返回 fywebapp 主面板",
         # PHQ-9
         "phq9_title": "📝 PHQ-9 抑鬱症狀臨床評估", "phq9_subtitle": "📋 患者健康問卷 (PHQ-9)",
@@ -61,9 +63,11 @@ t = {
         "hist_title": "📁 患者歷史評估總表", "tz_title": "### 🌍 時區設定", "tz_select": "請選擇您目前的所在地時區：", "hist_desc": "以下是您登記過的所有患者檢測紀錄：", "no_hist": "📭 目前尚無任何提交紀錄。", "col_time": "登記時間 (時區)", "col_pid": "患者編號/代碼", "col_score": "PHQ-9 總分", "col_status": "狀態評級", "search_placeholder": "🔍 輸入患者編號篩選個人紀錄",
         # 飲水
         "water_title": "💧 每日飲水健康追蹤", "water_log_section": "### 📥 紀錄本次飲水", "water_label": "本次飲水量 (毫升 ml)", "water_notes": "備註說明 (選填)", "water_notes_placeholder": "例如：早起第一杯水...",
-        "water_success": "🥤 成功紀錄！您剛剛喝了 {} ml 的水！", "water_err": "⚠️ 請輸入大於 0 的有效飲水量！", "water_review_section": "### 📊 歷史飲水追蹤與檢視", "water_col_time": "紀錄時間", "water_col_amount": "飲水量 (ml)", "water_col_notes": "備註", "water_no_data": "📭 您目前尚無任何飲水紀錄，多喝水有益健康喔！", "water_total_today": "📅 今日累積總飲水量",
-        # 子彈筆記 (BuJo)
-        "bujo_title": "📓 個人子彈隨筆筆記", "bujo_log_section": "### ✍🏼 新增子彈筆記", "bujo_type_lbl": "選擇筆記類型 (Bullet Icon)", "bujo_content_lbl": "筆記內容 (隨手記下今天發生的事情吧...)", "bujo_success": "✨ 成功將一筆子彈筆記儲存至日誌中！", "bujo_err": "⚠️ 內容空空的，寫點字再儲存吧！", "bujo_review_section": "### 📜 我的歷史子彈日誌", "bujo_col_time": "筆記時間", "bujo_col_type": "類型", "bujo_col_content": "內容明細", "bujo_no_data": "📭 目前還沒有寫下任何子彈筆記喔。今天心情如何呢？"
+        "water_success": "🥤 成功紀錄！您剛剛喝了 {} ml 的水！", "water_err": "⚠️ 請輸入大於 0 的有效飲水量！", "water_review_section": "### 📊 歷史飲水追蹤與檢視", "water_col_time": "紀錄時間", "water_col_amount": "飲水量 (ml)", "water_col_notes": "備註", "water_no_data": "📭 您目前尚無 any 飲水紀錄，多喝水有益健康喔！", "water_total_today": "📅 今日累積總飲水量",
+        # 子彈筆記
+        "bujo_title": "📓 個人子彈隨筆筆記", "bujo_log_section": "### ✍🏼 新增子彈筆記", "bujo_type_lbl": "選擇筆記類型 (Bullet Icon)", "bujo_content_lbl": "筆記內容 (隨手記下今天發生的事情吧...)", "bujo_success": "✨ 成功將一筆子彈筆記儲存至日誌中！", "bujo_err": "⚠️ 內容空空的，寫點字再儲存吧！", "bujo_review_section": "### 📜 我的歷史子彈日誌", "bujo_col_time": "筆記時間", "bujo_col_type": "類型", "bujo_col_content": "內容明細", "bujo_no_data": "📭 目前還沒有寫下 any 子彈筆記喔。今天心情如何呢？",
+        # 美食決策機
+        "food_title": "🍱 今日美食決策抽獎機", "food_select_city": "🌍 選擇您目前所在的城市美食庫", "food_roll_section": "### 🎲 命運之輪：今天食咩好？", "food_roll_btn": "🎉 隨機幫我抽一個靈感！", "food_result_lbl": "💡 系統推薦您今天吃：", "food_empty_pool": "📭 目前的美食庫空空的，趕快在下方新增一些選項吧！", "food_add_section": "### ➕ 新增我的私藏美食選項", "food_name_lbl": "美食 / 餐廳 / 料理名稱 (例如：港式茶餐廳、Pho、乾炒牛河)", "food_privacy_lbl": "🔓 願意公開與所有人分享此美食選項 (不勾選則為個人私有)", "food_add_success": "🌟 成功將『{}』加入 {} 美食清單中！", "food_add_err": "⚠️ 請填寫美食名稱再行儲存！", "food_list_section": "### 📋 當前可抽獎的美食名單 (含個人私有與他人共享)", "col_food_name": "美食名稱", "col_food_src": "來源類型", "src_private": "🔒 僅自己可見 (Private)", "src_public": "🌐 眾人共享 (Shared)"
     },
     "en": {
         "login_title": "👋🏼 Welcome to fywebapp",
@@ -80,6 +84,7 @@ t = {
         "btn_phq9": "📝 Access PHQ-9 Assessment System",
         "btn_water": "💧 Access Daily Water Tracking System",
         "btn_bujo": "📓 Access Personal Bullet Journal",
+        "btn_food": "🍱 Access Food Picker Engine",
         "btn_gad7": "📊 Access GAD-7 Assessment System (Coming Soon)",
         "btn_analytics": "📈 Access Insights & Analytics Backoffice (Coming Soon)",
         "no_perm": "⚠️ Your account currently has no modules assigned. Please contact the administrator to grant permissions.",
@@ -95,8 +100,10 @@ t = {
         # 飲水
         "water_title": "💧 Daily Hydration Tracker", "water_log_section": "### 📥 Log Hydration", "water_label": "Amount of water (ml)", "water_notes": "Notes (Optional)", "water_notes_placeholder": "e.g., First cup in the morning...",
         "water_success": "🥤 Success! You just logged {} ml of water!", "water_err": "⚠️ Please enter a valid water amount greater than 0!", "water_review_section": "### 📊 Hydration History Review", "water_col_time": "Log Time", "water_col_amount": "Amount (ml)", "water_col_notes": "Notes", "water_no_data": "📭 No hydration data logged yet. Keep drinking water!", "water_total_today": "📅 Total Water Intake Today",
-        # 子彈筆記 (BuJo)
-        "bujo_title": "📓 Personal Bullet Journal", "bujo_log_section": "### ✍🏼 Create Log Entry", "bujo_type_lbl": "Select Entry Type (Bullet Icon)", "bujo_content_lbl": "Journal Content (Jot down your thoughts, tasks, or mood...)", "bujo_success": "✨ Successfully saved entry to your journal log!", "bujo_err": "⚠️ Journal content cannot be empty!", "bujo_review_section": "### 📜 My Historical Bullet Logs", "bujo_col_time": "Logged Time", "bujo_col_type": "Type", "bujo_col_content": "Content Details", "bujo_no_data": "📭 Your bullet journal is empty. How are you feeling today?"
+        # 子彈筆記
+        "bujo_title": "📓 Personal Bullet Journal", "bujo_log_section": "### ✍🏼 Create Log Entry", "bujo_type_lbl": "Select Entry Type (Bullet Icon)", "bujo_content_lbl": "Journal Content (Jot down your thoughts, tasks, or mood...)", "bujo_success": "✨ Successfully saved entry to your journal log!", "bujo_err": "⚠️ Journal content cannot be empty!", "bujo_review_section": "### 📜 My Historical Bullet Logs", "bujo_col_time": "Logged Time", "bujo_col_type": "Type", "bujo_col_content": "Content Details", "bujo_no_data": "📭 Your bullet journal is empty. How are you feeling today?",
+        # 美食決策機
+        "food_title": "🍱 Meal Picker Decision Engine", "food_select_city": "🌍 Select your current location database", "food_roll_section": "### 🎲 Wheel of Fortune: What to eat today?", "food_roll_btn": "🎉 Randomly pick a meal option!", "food_result_lbl": "💡 Recommended for you today:", "food_empty_pool": "📭 The meal pool for this city is empty. Add some options below first!", "food_add_section": "### ➕ Add Custom Food Option", "food_name_lbl": "Food / Restaurant / Cuisine Name (e.g., Cha Chaan Teng, Pho, Ramen)", "food_privacy_lbl": "🔓 Allow everyone to draw this option (Shared / Public)", "food_add_success": "🌟 Successfully added '{}' into the {} list!", "food_add_err": "⚠️ Food name cannot be empty!", "food_list_section": "### 📋 Available Food Pool (Your Private Items + Community Shared Items)", "col_food_name": "Food Name", "col_food_src": "Source Type", "src_private": "🔒 Private (Just for you)", "src_public": "🌐 Shared (Public Option)"
     }
 }
 
@@ -131,7 +138,7 @@ if st.session_state.current_page == "login":
                 if role_resp.data:
                     st.session_state.permissions = role_resp.data[0]
                 else:
-                    st.session_state.permissions = {"can_access_phq9": False, "can_access_water": False, "can_access_bujo": False, "can_access_gad7": False, "can_access_analytics": False}
+                    st.session_state.permissions = {"can_access_phq9": False, "can_access_water": False, "can_access_bujo": False, "can_access_food_picker": False, "can_access_gad7": False, "can_access_analytics": False}
                 
                 st.session_state.current_page = "dashboard"; st.rerun()
             except Exception:
@@ -160,6 +167,10 @@ elif st.session_state.current_page == "dashboard":
     if perms.get("can_access_bujo"):
         has_any = True
         if st.button(t[lang]["btn_bujo"], use_container_width=True): st.session_state.current_page = "bujo_module"; st.rerun()
+
+    if perms.get("can_access_food_picker"):
+        has_any = True
+        if st.button(t[lang]["btn_food"], use_container_width=True): st.session_state.current_page = "food_module"; st.rerun()
             
     if perms.get("can_access_gad7"):
         has_any = True
@@ -279,18 +290,14 @@ elif st.session_state.current_page == "water_module":
         if st.form_submit_button("💾 Save") and amount > 0:
             try:
                 session = st.session_state.supabase.auth.get_session()
-                if session: 
-                    st.session_state.supabase.postgrest.auth(session.access_token)
-                
+                if session: st.session_state.supabase.postgrest.auth(session.access_token)
                 st.session_state.supabase.table("water_logs").insert({"user_id": st.session_state.user.id, "amount_ml": int(amount), "notes": notes.strip()}).execute()
                 st.success(t[lang]["water_success"].format(amount))
             except Exception as e: st.error(f"Error: {e}")
     st.divider(); st.write(t[lang]["water_review_section"])
     try:
         session = st.session_state.supabase.auth.get_session()
-        if session: 
-            st.session_state.supabase.postgrest.auth(session.access_token)
-            
+        if session: st.session_state.supabase.postgrest.auth(session.access_token)
         resp = st.session_state.supabase.table("water_logs").select("created_at, amount_ml, notes").eq("user_id", st.session_state.user.id).order("created_at", desc=True).execute()
         if not resp.data: st.warning(t[lang]["water_no_data"])
         else:
@@ -304,75 +311,120 @@ elif st.session_state.current_page == "water_module":
     except Exception as e: st.error(f"Error: {e}")
 
 # =========================================================================
-# 頁面 E：📓 子彈筆記隨手隨筆模組 (bujo_module)
+# 頁面 E：📓 子彈筆記隨手隨筆模組
 # =========================================================================
 elif st.session_state.current_page == "bujo_module":
-    if not st.session_state.permissions.get("can_access_bujo"):
-        st.session_state.current_page = "dashboard"; st.rerun()
-        
+    if not st.session_state.permissions.get("can_access_bujo"): st.session_state.current_page = "dashboard"; st.rerun()
     st.title(t[lang]["bujo_title"])
-    if st.sidebar.button(t[lang]["btn_back_dash"], key="back_bujo"):
-        st.session_state.current_page = "dashboard"; st.rerun()
-        
+    if st.sidebar.button(t[lang]["btn_back_dash"], key="back_bujo"): st.session_state.current_page = "dashboard"; st.rerun()
     user_tz_name = st.selectbox("🌍 Timezone / 時區", options=["America/Toronto", "Asia/Hong_Kong", "UTC"], index=0, key="bujo_tz")
-    local_tz = pytz.timezone(user_tz_name)
-    st.divider()
-    
-    # 1. 新增筆記區塊
-    st.write(t[lang]["bujo_log_section"])
+    local_tz = pytz.timezone(user_tz_name); st.divider(); st.write(t[lang]["bujo_log_section"])
     with st.form("bujo_log_form"):
         bujo_types = ["任務 •", "事件 ○", "筆記 -", "靈感 💡", "心情 💖"] if lang == "zh" else ["Task •", "Event ○", "Note -", "Idea 💡", "Mood 💖"]
         b_type = st.selectbox(t[lang]["bujo_type_lbl"], options=bujo_types)
         b_content = st.text_area(t[lang]["bujo_content_lbl"], height=100)
-        b_submit = st.form_submit_button("💾 Save Entry / 儲存筆記")
+        if st.form_submit_button("💾 Save Entry") and b_content.strip():
+            try:
+                session = st.session_state.supabase.auth.get_session()
+                if session: st.session_state.supabase.postgrest.auth(session.access_token)
+                st.session_state.supabase.table("bullet_journal").insert({"user_id": st.session_state.user.id, "entry_type": b_type, "content": b_content.strip()}).execute()
+                st.success(t[lang]["bujo_success"])
+            except Exception as e: st.error(f"Error: {e}")
+    st.divider(); st.write(t[lang]["bujo_review_section"])
+    try:
+        session = st.session_state.supabase.auth.get_session()
+        if session: st.session_state.supabase.postgrest.auth(session.access_token)
+        resp = st.session_state.supabase.table("bullet_journal").select("created_at, entry_type, content").eq("user_id", st.session_state.user.id).order("created_at", desc=True).execute()
+        if not resp.data: st.warning(t[lang]["bujo_no_data"])
+        else:
+            bujo_list = []
+            for item in resp.data:
+                dt_utc = datetime.datetime.fromisoformat(item["created_at"].replace("Z", "+00:00")); dt_local = dt_utc.astimezone(local_tz)
+                bujo_list.append({t[lang]["bujo_col_time"]: f"{dt_local.strftime('%Y-%m-%d %H:%M')} ({dt_local.strftime('%Z')})", t[lang]["bujo_col_type"]: item.get("entry_type"), t[lang]["bujo_col_content"]: item.get("content")})
+            st.dataframe(pd.DataFrame(bujo_list), use_container_width=True, hide_index=True)
+    except Exception as e: st.error(f"Error: {e}")
+
+# =========================================================================
+# 頁面 F：🍱 今日美食決策抽獎機模組 (支援私有 / 共享 隱私分流)
+# =========================================================================
+elif st.session_state.current_page == "food_module":
+    if not st.session_state.permissions.get("can_access_food_picker"):
+        st.session_state.current_page = "dashboard"; st.rerun()
         
-        if b_submit:
-            if b_content.strip():
+    st.title(t[lang]["food_title"])
+    if st.sidebar.button(t[lang]["btn_back_dash"], key="back_food"):
+        st.session_state.current_page = "dashboard"; st.rerun()
+        
+    # 城市大分類選擇器
+    st.write(t[lang]["food_select_city"])
+    city_choice = st.radio("📍 City / 城市", options=["Hong Kong", "Toronto"], horizontal=True)
+    st.divider()
+    
+    # 讀取符合權限的安全美食池（我自己建立的 OR 別人公開分享的）
+    food_pool = []
+    raw_items = []
+    try:
+        session = st.session_state.supabase.auth.get_session()
+        if session: st.session_state.supabase.postgrest.auth(session.access_token)
+        
+        # 🎯 這裡由 RLS 安全規則自動幫我們過濾出了：(我的私有選項) + (全平台共用的公開選項)
+        resp = st.session_state.supabase.table("food_options").select("id, food_name, is_public, user_id").eq("city", city_choice).execute()
+        raw_items = resp.data
+        food_pool = [item["food_name"] for item in raw_items]
+    except Exception as e:
+        st.error(f"Error loading food pool: {e}")
+
+    # 1. 隨機抽獎按鈕區塊
+    st.write(t[lang]["food_roll_section"])
+    if not food_pool:
+        st.warning(t[lang]["food_empty_pool"])
+    else:
+        if st.button(t[lang]["food_roll_btn"], type="primary", use_container_width=True):
+            chosen_meal = random.choice(food_pool)
+            st.balloons()
+            st.success(f"{t[lang]['food_result_lbl']} **✨ {chosen_meal} ✨**")
+            
+    st.divider()
+    
+    # 2. 新增美食選項表單 (帶有「公開/私有」隱私開關)
+    st.write(t[lang]["food_add_section"])
+    with st.form("add_food_form"):
+        new_food = st.text_input(t[lang]["food_name_lbl"])
+        # 🎯 隱私設定開關：預設不勾選（私有🔒），勾選則為所有人共享（🌐）
+        is_public_checked = st.checkbox(t[lang]["food_privacy_lbl"], value=False)
+        
+        if st.form_submit_button("➕ Save Food / 儲存選項"):
+            if new_food.strip():
                 try:
                     session = st.session_state.supabase.auth.get_session()
-                    if session: 
-                        st.session_state.supabase.postgrest.auth(session.access_token)
+                    if session: st.session_state.supabase.postgrest.auth(session.access_token)
                     
-                    st.session_state.supabase.table("bullet_journal").insert({
+                    st.session_state.supabase.table("food_options").insert({
                         "user_id": st.session_state.user.id,
-                        "entry_type": b_type,
-                        "content": b_content.strip()
+                        "city": city_choice,
+                        "food_name": new_food.strip(),
+                        "is_public": is_public_checked  # 寫入隱私設定
                     }).execute()
-                    st.success(t[lang]["bujo_success"])
+                    st.success(t[lang]["food_add_success"].format(new_food.strip(), city_choice))
+                    st.rerun()
                 except Exception as e:
-                    st.error(f"Error saving entry: {e}")
+                    st.error(f"Error: {e}")
             else:
-                st.error(t[lang]["bujo_err"])
+                st.error(t[lang]["food_add_err"])
                 
     st.divider()
     
-    # 2. 歷史筆記回顧區塊
-    st.write(t[lang]["bujo_review_section"])
-    try:
-        session = st.session_state.supabase.auth.get_session()
-        if session: 
-            st.session_state.supabase.postgrest.auth(session.access_token)
-        
-        resp = st.session_state.supabase.table("bullet_journal").select("created_at, entry_type, content").eq("user_id", st.session_state.user.id).order("created_at", desc=True).execute()
-        bujo_data = resp.data
-        
-        if not bujo_data:
-            st.warning(t[lang]["bujo_no_data"])
-        else:
-            bujo_list = []
-            for item in bujo_data:
-                dt_utc = datetime.datetime.fromisoformat(item["created_at"].replace("Z", "+00:00"))
-                dt_local = dt_utc.astimezone(local_tz)
-                
-                bujo_list.append({
-                    t[lang]["bujo_col_time"]: f"{dt_local.strftime('%Y-%m-%d %H:%M')} ({dt_local.strftime('%Z')})",
-                    t[lang]["bujo_col_type"]: item.get("entry_type"),
-                    t[lang]["bujo_col_content"]: item.get("content")
-                })
-            
-            st.dataframe(pd.DataFrame(bujo_list), use_container_width=True, hide_index=True)
-    except Exception as e:
-        st.error(f"Error loading journal logs: {e}")
+    # 3. 顯示目前擁有的名單表格 (清晰標記出它是私房選項還是大眾共享)
+    st.write(t[lang]["food_list_section"])
+    if raw_items:
+        display_list = []
+        for item in raw_items:
+            src_text = t[lang]["src_public"] if item.get("is_public") else t[lang]["src_private"]
+            display_list.append({
+                t[lang]["col_food_name"]: item.get("food_name"),
+                t[lang]["col_food_src"]: src_text
+            })
+        st.dataframe(pd.DataFrame(display_list), use_container_width=True, hide_index=True)
 
 # =========================================================================
 # 未來擴充佔位頁面
