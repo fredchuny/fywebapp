@@ -8,53 +8,58 @@ import random
 st.html(
     """
     <style>
-    /* 1. 強制手機版保持雙欄網格 (破解 Streamlit 的自動折疊) */
+    /* 1. 強制手機版保持雙欄網格 */
     @media (max-width: 768px) {
         div[data-testid="stHorizontalBlock"] {
             flex-direction: row !important;
             flex-wrap: wrap !important;
         }
         div[data-testid="column"], div[data-testid="stColumn"] {
-            /* 讓每個欄位在手機上依然保持 50% 的寬度 */
             width: calc(50% - 0.5rem) !important;
             flex: 1 1 calc(50% - 0.5rem) !important;
             min-width: calc(50% - 0.5rem) !important;
         }
     }
 
-    /* 2. 直接瞄準 Streamlit 原生按鈕，將其變成方形卡片 */
+    /* 2. 定義方形卡片按鈕 */
     div[data-testid="stButton"] button {
-        height: 120px !important;          /* 🌟 決定卡片的高度 */
-        width: 100% !important;            /* 填滿欄位寬度 */
-        border-radius: 16px !important;    /* 更圓潤的邊角 */
+        height: 140px !important;          /* 🌟 稍微加高一點，給大 Emoji 留出空間 */
+        width: 100% !important;
+        border-radius: 16px !important;
         
-        /* 🌟 使用 Streamlit 內建主題變數，完美支援深色/淺色模式 */
         background-color: var(--secondary-background-color) !important;
         color: var(--text-color) !important;
         border: 1px solid var(--faded-text-10) !important;
         
-        /* 內部文字與圖示排版 */
         display: flex !important;
-        flex-direction: column !important; /* 讓內容上下排列 */
+        flex-direction: column !important;
         align-items: center !important;
         justify-content: center !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
-        padding: 10px !important;
-        white-space: pre-wrap !important;  /* 允許使用 \\n 換行 */
+        box-shadow: 0 4px 8px rgba(0,0,0,0.05) !important;
+        padding: 15px 10px !important;
+        white-space: pre-line !important;  /* 🌟 必須維持 pre-line 才能分行 */
         transition: all 0.2s ease-in-out !important;
     }
     
-    /* 3. 覆蓋 Streamlit 預設的字體大小限制 */
+    /* 3. 卡片內部的文字樣式 (第二行與之後的文字) */
     div[data-testid="stButton"] button p {
-        font-size: 18px !important;        /* 🌟 放大字體 */
+        font-size: 16px !important;        /* 🌟 讓下方文字大小適中 (16px) */
         font-weight: 600 !important;
         margin: 0 !important;
-        line-height: 1.5 !important;
+        line-height: 1.4 !important;
+        text-align: center !important;
     }
 
-    /* 4. 點擊與懸浮的動態回饋 */
-    div[data-testid="stButton"] button:hover, div[data-testid="stButton"] button:active {
-        transform: scale(0.96) !important;
+    /* 4. 🎯 關鍵：單獨將第一行的 Emoji 放大 */
+    div[data-testid="stButton"] button p::first-line {
+        font-size: 36px !important;        /* 🌟 超大 Emoji 圖示！ */
+        line-height: 1.6 !important;
+    }
+
+    /* 5. 點擊與懸浮動態回饋 */
+    div[data-testid="stButton"] button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.1) !important;
         border-color: var(--primary-color) !important;
     }
     </style>
