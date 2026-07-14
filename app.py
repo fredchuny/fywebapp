@@ -22,7 +22,7 @@ def get_severity(score):
 # =========================================================================
 # 1. 全域設定與初始化 (fywebapp)
 # =========================================================================
-st.set_page_config(page_title="fywebapp", page_icon="🔑", layout="centered")
+st.set_page_config(page_title="FY Web App", page_icon="🔑", layout="centered")
 
 # 初始化 Supabase 連線
 if "supabase" not in st.session_state:
