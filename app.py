@@ -284,16 +284,25 @@ elif st.session_state.current_page == "water_module":
     if st.sidebar.button(t[lang]["btn_back_dash"], key="back_water"): st.session_state.current_page = "dashboard"; st.rerun()
     user_tz_name = st.selectbox("🌍 Timezone / 時區", options=["America/Toronto", "Asia/Hong_Kong", "UTC"], index=0, key="water_tz")
     local_tz = pytz.timezone(user_tz_name); st.divider(); st.write(t[lang]["water_log_section"])
+    
     with st.form("water_log_form"):
         amount = st.number_input(t[lang]["water_label"], min_value=0, value=250, step=50)
         notes = st.text_input(t[lang]["water_notes"], placeholder=t[lang]["water_notes_placeholder"])
-        if st.form_submit_button("💾 Save") and amount > 0:
-            try:
-                session = st.session_state.supabase.auth.get_session()
-                if session: st.session_state.supabase.postgrest.auth(session.access_token)
-                st.session_state.supabase.table("water_logs").insert({"user_id": st.session_state.user.id, "amount_ml": int(amount), "notes": notes.strip()}).execute()
-                st.success(t[lang]["water_success"].format(amount))
-            except Exception as e: st.error(f"Error: {e}")
+        water_submit = st.form_submit_button("💾 Save")
+        
+        # 🎯 修正後的安全表單驗證：獨立在按鈕觸發內判斷
+        if water_submit:
+            if amount > 0:
+                try:
+                    session = st.session_state.supabase.auth.get_session()
+                    if session: st.session_state.supabase.postgrest.auth(session.access_token)
+                    st.session_state.supabase.table("water_logs").insert({"user_id": st.session_state.user.id, "amount_ml": int(amount), "notes": notes.strip()}).execute()
+                    st.success(t[lang]["water_success"].format(amount))
+                    st.rerun()
+                except Exception as e: st.error(f"Error: {e}")
+            else:
+                st.error(t[lang]["water_err"])
+                
     st.divider(); st.write(t[lang]["water_review_section"])
     try:
         session = st.session_state.supabase.auth.get_session()
@@ -319,17 +328,26 @@ elif st.session_state.current_page == "bujo_module":
     if st.sidebar.button(t[lang]["btn_back_dash"], key="back_bujo"): st.session_state.current_page = "dashboard"; st.rerun()
     user_tz_name = st.selectbox("🌍 Timezone / 時區", options=["America/Toronto", "Asia/Hong_Kong", "UTC"], index=0, key="bujo_tz")
     local_tz = pytz.timezone(user_tz_name); st.divider(); st.write(t[lang]["bujo_log_section"])
+    
     with st.form("bujo_log_form"):
         bujo_types = ["任務 •", "事件 ○", "筆記 -", "靈感 💡", "心情 💖"] if lang == "zh" else ["Task •", "Event ○", "Note -", "Idea 💡", "Mood 💖"]
         b_type = st.selectbox(t[lang]["bujo_type_lbl"], options=bujo_types)
         b_content = st.text_area(t[lang]["bujo_content_lbl"], height=100)
-        if st.form_submit_button("💾 Save Entry") and b_content.strip():
-            try:
-                session = st.session_state.supabase.auth.get_session()
-                if session: st.session_state.supabase.postgrest.auth(session.access_token)
-                st.session_state.supabase.table("bullet_journal").insert({"user_id": st.session_state.user.id, "entry_type": b_type, "content": b_content.strip()}).execute()
-                st.success(t[lang]["bujo_success"])
-            except Exception as e: st.error(f"Error: {e}")
+        bujo_submit = st.form_submit_button("💾 Save Entry")
+        
+        # 🎯 修正後的安全表單驗證：獨立在按鈕區塊內部驗證
+        if bujo_submit:
+            if b_content.strip():
+                try:
+                    session = st.session_state.supabase.auth.get_session()
+                    if session: st.session_state.supabase.postgrest.auth(session.access_token)
+                    st.session_state.supabase.table("bullet_journal").insert({"user_id": st.session_state.user.id, "entry_type": b_type, "content": b_content.strip()}).execute()
+                    st.success(t[lang]["bujo_success"])
+                    st.rerun()
+                except Exception as e: st.error(f"Error: {e}")
+            else:
+                st.error(t[lang]["bujo_err"])
+                
     st.divider(); st.write(t[lang]["bujo_review_section"])
     try:
         session = st.session_state.supabase.auth.get_session()
@@ -392,8 +410,9 @@ elif st.session_state.current_page == "food_module":
         new_food = st.text_input(t[lang]["food_name_lbl"])
         # 🎯 隱私設定開關：預設不勾選（私有🔒），勾選則為所有人共享（🌐）
         is_public_checked = st.checkbox(t[lang]["food_privacy_lbl"], value=False)
+        food_add_submit = st.form_submit_button("➕ Save Food / 儲存選項")
         
-        if st.form_submit_button("➕ Save Food / 儲存選項"):
+        if food_add_submit:
             if new_food.strip():
                 try:
                     session = st.session_state.supabase.auth.get_session()
