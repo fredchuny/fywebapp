@@ -8,38 +8,54 @@ import random
 st.html(
     """
     <style>
-    /* 1. 設定外層網格欄位的背景與圓角 */
-    div[data-testid="stColumn"] {
-        background-color: #fcfcfc !important;
-        border-radius: 12px !important;
-        padding: 0px !important; /* 讓按鈕可以貼齊外框 */
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
-        border: 1px solid #e0e0e0 !important;
-        transition: transform 0.2s !important;
-        overflow: hidden !important;
+    /* 1. 強制手機版保持雙欄網格 (破解 Streamlit 的自動折疊) */
+    @media (max-width: 768px) {
+        div[data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+        }
+        div[data-testid="column"], div[data-testid="stColumn"] {
+            /* 讓每個欄位在手機上依然保持 50% 的寬度 */
+            width: calc(50% - 0.5rem) !important;
+            flex: 1 1 calc(50% - 0.5rem) !important;
+            min-width: calc(50% - 0.5rem) !important;
+        }
     }
-    div[data-testid="stColumn"]:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 12px rgba(0,0,0,0.1) !important;
-    }
-    
-    /* 2. 強制把內部的按鈕高度、字體與間距撐大 */
-    div[data-testid="stColumn"] button[data-testid="baseButton-secondary"] {
-        background: transparent !important;
-        border: none !important;
-        color: #333333 !important;
+
+    /* 2. 直接瞄準 Streamlit 原生按鈕，將其變成方形卡片 */
+    div[data-testid="stButton"] button {
+        height: 120px !important;          /* 🌟 決定卡片的高度 */
+        width: 100% !important;            /* 填滿欄位寬度 */
+        border-radius: 16px !important;    /* 更圓潤的邊角 */
         
-        /* 💡 關鍵：這裡控制按鈕的整體高度與字體大小 */
-        height: 120px !important; 
-        font-size: 22px !important; 
-        font-weight: bold !important;
+        /* 🌟 使用 Streamlit 內建主題變數，完美支援深色/淺色模式 */
+        background-color: var(--secondary-background-color) !important;
+        color: var(--text-color) !important;
+        border: 1px solid var(--faded-text-10) !important;
         
-        width: 100% !important;
+        /* 內部文字與圖示排版 */
         display: flex !important;
+        flex-direction: column !important; /* 讓內容上下排列 */
         align-items: center !important;
         justify-content: center !important;
-        white-space: pre-line !important; /* 允許文字換行 */
-        line-height: 1.4 !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+        padding: 10px !important;
+        white-space: pre-wrap !important;  /* 允許使用 \\n 換行 */
+        transition: all 0.2s ease-in-out !important;
+    }
+    
+    /* 3. 覆蓋 Streamlit 預設的字體大小限制 */
+    div[data-testid="stButton"] button p {
+        font-size: 18px !important;        /* 🌟 放大字體 */
+        font-weight: 600 !important;
+        margin: 0 !important;
+        line-height: 1.5 !important;
+    }
+
+    /* 4. 點擊與懸浮的動態回饋 */
+    div[data-testid="stButton"] button:hover, div[data-testid="stButton"] button:active {
+        transform: scale(0.96) !important;
+        border-color: var(--primary-color) !important;
     }
     </style>
     """
