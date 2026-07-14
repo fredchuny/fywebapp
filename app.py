@@ -49,7 +49,7 @@ t = {
         "btn_bujo": "📓 進入 子彈筆記隨手隨筆",
         "btn_gad7": "📊 進入 GAD-7 焦慮評估系統 (未來擴充)",
         "btn_analytics": "📈 進入 機構數據分析後台 (未來擴充)",
-        "no_perm": "⚠️ 您的帳號目前尚未指派任何功能模組。請聯絡管理員幫您開啟權限喔！",
+        "no_perm": "⚠️ 您的帳號目前尚未指派 any 功能模組。請聯絡管理員幫您開啟權限喔！",
         "btn_back_dash": "⬅️ 返回 fywebapp 主面板",
         # PHQ-9
         "phq9_title": "📝 PHQ-9 抑鬱症狀臨床評估", "phq9_subtitle": "📋 患者健康問卷 (PHQ-9)",
@@ -60,7 +60,8 @@ t = {
         "success_匯入": "🎉 患者數據已成功安全匯入資料庫！", "rep_title": "📝 本次評估結果報告", "metric_p": "被評估患者", "metric_s": "PHQ-9 總得分", "status_lbl": "📊 **目前情緒狀態評級：**", "btn_next": "🔄 登記下一筆新問卷", "btn_all_hist": "📁 查看全歷史紀錄清單",
         "hist_title": "📁 患者歷史評估總表", "tz_title": "### 🌍 時區設定", "tz_select": "請選擇您目前的所在地時區：", "hist_desc": "以下是您登記過的所有患者檢測紀錄：", "no_hist": "📭 目前尚無任何提交紀錄。", "col_time": "登記時間 (時區)", "col_pid": "患者編號/代碼", "col_score": "PHQ-9 總分", "col_status": "狀態評級", "search_placeholder": "🔍 輸入患者編號篩選個人紀錄",
         # 飲水
-        "water_title": "💧 每日飲水健康追蹤", "water_log_section": "### 📥 紀錄本次飲水", "water_label": "本次飲水量 (毫升 ml)", "water_notes": "備註說明 (選填)", "water_notes_placeholder": "例如：早起第一杯水...", "water_success": "🥤 成功紀錄！您剛剛喝了 {} ml 的水！", "water_err": "⚠️ 請輸入大於 0 的有效飲水量！", "water_review_section": "### 📊 歷史飲水追蹤與檢視", "water_col_time": "紀錄時間", "water_col_amount": "飲水量 (ml)", "water_col_notes": "備註", "water_no_data": "📭 您目前尚無任何飲水紀錄，多喝水有益健康喔！", "water_total_today": "📅 今日累積總飲水量",
+        "water_title": "💧 每日飲水健康追蹤", "water_log_section": "### 📥 紀錄本次飲水", "water_label": "本次飲水量 (毫升 ml)", "water_notes": "備註說明 (選填)", "water_notes_placeholder": "例如：早起第一杯水...",
+        "water_success": "🥤 成功紀錄！您剛剛喝了 {} ml 的水！", "water_err": "⚠️ 請輸入大於 0 的有效飲水量！", "water_review_section": "### 📊 歷史飲水追蹤與檢視", "water_col_time": "紀錄時間", "water_col_amount": "飲水量 (ml)", "water_col_notes": "備註", "water_no_data": "📭 您目前尚無任何飲水紀錄，多喝水有益健康喔！", "water_total_today": "📅 今日累積總飲水量",
         # 子彈筆記 (BuJo)
         "bujo_title": "📓 個人子彈隨筆筆記", "bujo_log_section": "### ✍🏼 新增子彈筆記", "bujo_type_lbl": "選擇筆記類型 (Bullet Icon)", "bujo_content_lbl": "筆記內容 (隨手記下今天發生的事情吧...)", "bujo_success": "✨ 成功將一筆子彈筆記儲存至日誌中！", "bujo_err": "⚠️ 內容空空的，寫點字再儲存吧！", "bujo_review_section": "### 📜 我的歷史子彈日誌", "bujo_col_time": "筆記時間", "bujo_col_type": "類型", "bujo_col_content": "內容明細", "bujo_no_data": "📭 目前還沒有寫下任何子彈筆記喔。今天心情如何呢？"
     },
@@ -92,7 +93,8 @@ t = {
         "success_匯入": "🎉 Patient data has been securely uploaded to the database!", "rep_title": "📝 Assessment Report Summary", "metric_p": "Assessed Patient", "metric_s": "Total PHQ-9 Score", "status_lbl": "📊 **Current Severity Level:**", "btn_next": "🔄 Register Next Questionnaire", "btn_all_hist": "📁 View Full History Logs",
         "hist_title": "📁 Patient Assessment History Logs", "tz_title": "### 🌍 Timezone Settings", "tz_select": "Select your current local timezone:", "hist_desc": "Here are all the clinical records registered under your profile:", "no_hist": "📭 No records found.", "col_time": "Timestamp (Timezone)", "col_pid": "Patient ID", "col_score": "PHQ-9 Score", "col_status": "Severity Status", "search_placeholder": "🔍 Enter Patient ID to filter records",
         # 飲水
-        "water_title": "💧 Daily Hydration Tracker", "water_log_section": "### 📥 Log Hydration", "water_label": "Amount of water (ml)", "water_notes": "Notes (Optional)", "water_notes_placeholder": "e.g., First cup in the morning...", "water_success": "🥤 Success! You just logged {} ml of water!", "water_err": "⚠️ Please enter a valid water amount greater than 0!", "water_review_section": "### 📊 Hydration History Review", "water_col_time": "Log Time", "water_col_amount": "Amount (ml)", "water_col_notes": "Notes", "water_no_data": "📭 No hydration data logged yet. Keep drinking water!", "water_total_today": "📅 Total Water Intake Today",
+        "water_title": "💧 Daily Hydration Tracker", "water_log_section": "### 📥 Log Hydration", "water_label": "Amount of water (ml)", "water_notes": "Notes (Optional)", "water_notes_placeholder": "e.g., First cup in the morning...",
+        "water_success": "🥤 Success! You just logged {} ml of water!", "water_err": "⚠️ Please enter a valid water amount greater than 0!", "water_review_section": "### 📊 Hydration History Review", "water_col_time": "Log Time", "water_col_amount": "Amount (ml)", "water_col_notes": "Notes", "water_no_data": "📭 No hydration data logged yet. Keep drinking water!", "water_total_today": "📅 Total Water Intake Today",
         # 子彈筆記 (BuJo)
         "bujo_title": "📓 Personal Bullet Journal", "bujo_log_section": "### ✍🏼 Create Log Entry", "bujo_type_lbl": "Select Entry Type (Bullet Icon)", "bujo_content_lbl": "Journal Content (Jot down your thoughts, tasks, or mood...)", "bujo_success": "✨ Successfully saved entry to your journal log!", "bujo_err": "⚠️ Journal content cannot be empty!", "bujo_review_section": "### 📜 My Historical Bullet Logs", "bujo_col_time": "Logged Time", "bujo_col_type": "Type", "bujo_col_content": "Content Details", "bujo_no_data": "📭 Your bullet journal is empty. How are you feeling today?"
     }
@@ -220,7 +222,7 @@ elif st.session_state.current_page == "quiz":
         if st.button(t[lang]["view_hist_btn"], use_container_width=True): st.session_state.current_page = "history"; st.rerun()
 
 # =========================================================================
-# 頁面 C-2：PHQ-9 結果與 C-3 歷史紀錄頁面 (略縮整合保持精簡)
+# 頁面 C-2：PHQ-9 結果與 C-3 歷史紀錄頁面
 # =========================================================================
 elif st.session_state.current_page == "result":
     st.balloons(); st.success(t[lang]['success_匯入'])
@@ -277,14 +279,18 @@ elif st.session_state.current_page == "water_module":
         if st.form_submit_button("💾 Save") and amount > 0:
             try:
                 session = st.session_state.supabase.auth.get_session()
-if session:
-    st.session_state.supabase.postgrest.auth(session.access_token)
+                if session: 
+                    st.session_state.supabase.postgrest.auth(session.access_token)
+                
                 st.session_state.supabase.table("water_logs").insert({"user_id": st.session_state.user.id, "amount_ml": int(amount), "notes": notes.strip()}).execute()
                 st.success(t[lang]["water_success"].format(amount))
             except Exception as e: st.error(f"Error: {e}")
     st.divider(); st.write(t[lang]["water_review_section"])
     try:
-        session = st.session_state.supabase.auth.get_session(); if session: st.session_state.supabase.postgrest.auth(session.access_token)
+        session = st.session_state.supabase.auth.get_session()
+        if session: 
+            st.session_state.supabase.postgrest.auth(session.access_token)
+            
         resp = st.session_state.supabase.table("water_logs").select("created_at, amount_ml, notes").eq("user_id", st.session_state.user.id).order("created_at", desc=True).execute()
         if not resp.data: st.warning(t[lang]["water_no_data"])
         else:
@@ -312,7 +318,7 @@ elif st.session_state.current_page == "bujo_module":
     local_tz = pytz.timezone(user_tz_name)
     st.divider()
     
-    # 1. 新增筆記區塊 (BuJo Entry Input)
+    # 1. 新增筆記區塊
     st.write(t[lang]["bujo_log_section"])
     with st.form("bujo_log_form"):
         bujo_types = ["任務 •", "事件 ○", "筆記 -", "靈感 💡", "心情 💖"] if lang == "zh" else ["Task •", "Event ○", "Note -", "Idea 💡", "Mood 💖"]
@@ -324,7 +330,8 @@ elif st.session_state.current_page == "bujo_module":
             if b_content.strip():
                 try:
                     session = st.session_state.supabase.auth.get_session()
-                    if session: st.session_state.supabase.postgrest.auth(session.access_token)
+                    if session: 
+                        st.session_state.supabase.postgrest.auth(session.access_token)
                     
                     st.session_state.supabase.table("bullet_journal").insert({
                         "user_id": st.session_state.user.id,
@@ -339,11 +346,12 @@ elif st.session_state.current_page == "bujo_module":
                 
     st.divider()
     
-    # 2. 歷史筆記回顧區塊 (BuJo Review Section)
+    # 2. 歷史筆記回顧區塊
     st.write(t[lang]["bujo_review_section"])
     try:
         session = st.session_state.supabase.auth.get_session()
-        if session: st.session_state.supabase.postgrest.auth(session.access_token)
+        if session: 
+            st.session_state.supabase.postgrest.auth(session.access_token)
         
         resp = st.session_state.supabase.table("bullet_journal").select("created_at, entry_type, content").eq("user_id", st.session_state.user.id).order("created_at", desc=True).execute()
         bujo_data = resp.data
