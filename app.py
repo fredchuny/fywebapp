@@ -550,12 +550,12 @@ elif st.session_state.current_page == "food_module":
         st.dataframe(pd.DataFrame(display_list), use_container_width=True, hide_index=True)
 
 # =========================================================================
-# 頁面 G：525APP_yyems 獨立核心數據面板
+# 頁面 G：525APP_yyems 獨立核心數據與圖表分析面板
 # =========================================================================
 elif st.session_state.current_page == "yyems_page":
     st.title(t[lang]["yyems_lab_title"])
     
-    # 頂部與側邊欄雙返回機制，方便快速切換
+    # 頂部與側邊欄雙返回機制
     if st.button(t[lang]["btn_back_dash"], key="top_back_yyems"):
         st.session_state.current_page = "dashboard"
         st.rerun()
@@ -570,33 +570,111 @@ elif st.session_state.current_page == "yyems_page":
         if session: 
             st.session_state.supabase.postgrest.auth(session.access_token)
             
-        st.caption(t[lang]["yyems_lab_caption"])
-        st.divider()
+        st.caption("💡 系統已成功安全對接雲端 `525APP_yyems` 完整歷史數據庫")
         
-        # 直接從 525APP_yyems 表格撈取數據 (限定最新 50 筆防止長列表加載卡頓)
-        resp = st.session_state.supabase.table("525APP_yyems").select("*").order("DateTime", desc=True).limit(50).execute()
-        records = resp.data
+        # 🎯 使用快取機制一次性下載所有紀錄（包含 auto_ 開頭的 Excel 衍生計算欄位）
+        @st.cache_data(ttl=600)
+        def load_all_yyems_data():
+            resp = st.session_state.supabase.table("525APP_yyems").select("*").order("DateTime", desc=True).execute()
+            return resp.data
+
+        records = load_all_yyems_data()
         
         if not records:
             st.warning(t[lang]["yyems_lab_err"])
         else:
-            df = pd.DataFrame(records)
+            # 轉換為 DataFrame
+            df_all = pd.DataFrame(records)
             
-            # 關鍵字篩選功能測試
-            search_query = st.text_input(t[lang]["search_placeholder"], "")
+            # 確保金額欄位與月份欄位格式正確
+            if "auto_div_amount" in df_all.columns:
+                df_all["auto_div_amount"] = pd.to_numeric(df_all["auto_div_amount"], errors='coerce').fillna(0)
+            if "auto_stat_month" in df_all.columns:
+                df_all["auto_stat_month"] = df_all["auto_stat_month"].astype(str)
+            
+            # --- 🔍 專屬高級雙過濾控制面板 ---
+            st.write("### 🎛️ 專屬財務分流與搜尋控制")
+            
+            col_view, col_search = st.columns([1, 1])
+            
+            with col_view:
+                # 🎯 你的核心需求：特定 Ownership 組合分流切換器
+                ownership_view = st.radio(
+                    "📊 選擇分流視角 (Ownership Filter)",
+                    options=[
+                        "全部顯示 (Show All Records)", 
+                        "共同 + FRD (yyems + frd)", 
+                        "共同 + CTY (yyems + cty)"
+                    ],
+                    index=0
+                )
+            with col_search:
+                search_query = st.text_input("🔍 關鍵字搜尋 (備註、說明、商家或 ID)", "")
+                
+            # 開始利用 Pandas 在記憶體內進行極速多重條件過濾
+            df_filtered = df_all.copy()
+            
+            # 1. 執行你的專屬 Ownership 組合過濾
+            if "Ownership" in df_filtered.columns:
+                # 先將資料中的字串轉為小寫方便比對
+                df_filtered["Ownership_lower"] = df_filtered["Ownership"].astype(str).str.lower()
+                
+                if ownership_view == "共同 + FRD (yyems + frd)":
+                    df_filtered = df_filtered[df_filtered["Ownership_lower"].isin(["yyems", "frd"])]
+                elif ownership_view == "共同 + CTY (yyems + cty)":
+                    df_filtered = df_filtered[df_filtered["Ownership_lower"].isin(["yyems", "cty"])]
+                    
+                # 刪除暫時使用的輔助欄位
+                df_filtered = df_filtered.drop(columns=["Ownership_lower"])
+
+            # 2. 執行關鍵字模糊搜尋
             if search_query:
-                # 彈性檢查大表常見的文字欄位進行篩選
-                for col in ["description", "remark", "YYEMS ID"]:
-                    if col in df.columns:
-                        df = df[df[col].astype(str).str.contains(search_query, case=False, na=False)]
-                        break
+                search_mask = False
+                for col in ["description", "remark", "YYEMS ID", "auto_vendor_name"]:
+                    if col in df_filtered.columns:
+                        search_mask |= df_filtered[col].astype(str).str.contains(search_query, case=False, na=False)
+                df_filtered = df_filtered[search_mask]
             
-            # 使用 Streamlit 內建的互動式表格呈現
-            st.dataframe(df, use_container_width=True, hide_index=True)
-            st.info(f"Loaded {len(df)} live records from Supabase.")
+            st.divider()
+            
+            # --- 📊 財務指標快報與月份對比 (KPI Metrics & Charts) ---
+            st.write("### 📈 數據分析與歷史月份對比")
+            
+            # 🎯 計算對應流向的精確總金額（使用 auto_div_amount）
+            total_calc_amount = df_filtered["auto_div_amount"].sum() if "auto_div_amount" in df_filtered.columns else 0.0
+            
+            # 用大卡片突顯當前篩選下的總計
+            st.metric(
+                label=f"💰 當前篩選條件下計算總額 (Total via auto_div_amount)", 
+                value=f"${total_calc_amount:,.2f}"
+            )
+            
+            # 🎯 建立「按月對比圖表」：將資料依月份分群並加總金額
+            if "auto_stat_month" in df_filtered.columns and "auto_div_amount" in df_filtered.columns:
+                # 按月份分組計算加總，並排除空月份
+                monthly_summary = df_filtered.groupby("auto_stat_month")["auto_div_amount"].sum().reset_index()
+                monthly_summary = monthly_summary[monthly_summary["auto_stat_month"] != "nan"].sort_values("auto_stat_month")
+                
+                if not monthly_summary.empty:
+                    # 使用 Streamlit 內建的原生長條圖/折線圖進行高效率月份對比
+                    st.write("#### 📅 歷史每月分帳總額對比趨勢")
+                    
+                    # 這裡使用 st.bar_chart 顯示月份對比長條圖，x 軸為月份，y 軸為總金額
+                    st.bar_chart(data=monthly_summary, x="auto_stat_month", y="auto_div_amount", use_container_width=True)
+                else:
+                    st.info("ℹ️ 當前篩選條件下無足夠的月份數據生成圖表。")
+                    
+            st.divider()
+            
+            # --- 📜 明細表格顯示 ---
+            st.write(f"📋 **交易明細清單：共 {len(df_filtered)} 筆紀錄** (總庫：{len(df_all)} 筆)")
+            st.dataframe(df_filtered, use_container_width=True, hide_index=True)
             
     except Exception as e:
-        st.error(f"Error connecting to Supabase: {e}")
+        st.error(f"Error connecting to Supabase or processing data: {e}")
+
+
+
 
 
 # =========================================================================
