@@ -550,7 +550,7 @@ elif st.session_state.current_page == "food_module":
         st.dataframe(pd.DataFrame(display_list), use_container_width=True, hide_index=True)
 
 # =========================================================================
-# 頁面 G：525APP_yyems 獨立核心數據面板 (智慧月份滾動分頁版)
+# 頁面 G：525APP_yyems 獨立核心數據面板 (動態金額切換與幣別過濾版)
 # =========================================================================
 elif st.session_state.current_page == "yyems_page":
     st.title(t[lang]["yyems_lab_title"])
@@ -572,7 +572,7 @@ elif st.session_state.current_page == "yyems_page":
             
         st.caption("💡 系統已成功安全對接雲端 `525APP_yyems` 完整歷史數據庫")
         
-        # 🎯 核心修復：使用剛才寫好的 while 迴圈分批抓取，確保 5,728 筆全部進來
+        # 使用快取機制一次性下載所有紀錄
         @st.cache_data(ttl=600)
         def load_all_yyems_data():
             all_records = []
@@ -596,35 +596,63 @@ elif st.session_state.current_page == "yyems_page":
         else:
             df_all = pd.DataFrame(records)
             
-            # 資料清洗
+            # 資料清洗：同時確保兩個金額欄位都是數值格式
+            if "auto_amount" in df_all.columns:
+                df_all["auto_amount"] = pd.to_numeric(df_all["auto_amount"], errors='coerce').fillna(0)
             if "auto_div_amount" in df_all.columns:
                 df_all["auto_div_amount"] = pd.to_numeric(df_all["auto_div_amount"], errors='coerce').fillna(0)
+                
             if "auto_stat_month" in df_all.columns:
                 df_all["auto_stat_month"] = df_all["auto_stat_month"].astype(str)
                 df_all = df_all[df_all["auto_stat_month"] != "nan"]
             
             cat_col = "auto_vendor_一級分類" if "auto_vendor_一級分類" in df_all.columns else "In_or_out"
             
-            # --- 🔍 專屬高級雙過濾控制面板 ---
+            # --- 🔍 專屬高級多功能過濾控制面板 ---
             st.write("### 🎛️ 專屬財務分流與搜尋控制")
-            col_view, col_search = st.columns([1, 1])
+            
+            col_view, col_currency, col_search = st.columns([1.5, 1, 1.5])
+            
             with col_view:
-                ownership_view = st.radio("📊 選擇分流視角 (Ownership Filter)", options=["全部顯示 (Show All Records)", "共同 + FRD (yyems + frd)", "共同 + CTY (yyems + cty)"], index=0)
+                ownership_view = st.radio(
+                    "📊 選擇分流視角 (Ownership Filter)", 
+                    options=["全部顯示 (Show All Records)", "共同 + FRD (yyems + frd)", "共同 + CTY (yyems + cty)"], 
+                    index=0
+                )
+            
+            with col_currency:
+                # 🎯 新增功能：從資料庫中動態抓取所有現有的幣別建立選單
+                if "Currency" in df_all.columns:
+                    available_currencies = ["全部 (All)"] + sorted(df_all["Currency"].dropna().unique().tolist())
+                else:
+                    available_currencies = ["全部 (All)"]
+                selected_currency = st.selectbox("💱 篩選幣別 (Currency)", options=available_currencies, index=0)
+                
             with col_search:
                 search_query = st.text_input("🔍 關鍵字搜尋 (備註、說明、商家或 ID)", "")
                 
+            # 開始過濾資料
             df_filtered = df_all.copy()
             
-            # Ownership 過濾
-            if "Ownership" in df_filtered.columns:
-                df_filtered["Ownership_lower"] = df_filtered["Ownership"].astype(str).str.lower()
-                if ownership_view == "共同 + FRD (yyems + frd)":
-                    df_filtered = df_filtered[df_filtered["Ownership_lower"].isin(["yyems", "frd"])]
-                elif ownership_view == "共同 + CTY (yyems + cty)":
-                    df_filtered = df_filtered[df_filtered["Ownership_lower"].isin(["yyems", "cty"])]
-                df_filtered = df_filtered.drop(columns=["Ownership_lower"])
+            # 1. 執行 Ownership 篩選，並動態決定計算目標欄位
+            if ownership_view == "全部顯示 (Show All Records)":
+                # 🎯 核心需求：全部顯示時，目標計算欄位切換為 auto_amount
+                target_amount_col = "auto_amount"
+            else:
+                target_amount_col = "auto_div_amount"
+                if "Ownership" in df_filtered.columns:
+                    df_filtered["Ownership_lower"] = df_filtered["Ownership"].astype(str).str.lower()
+                    if ownership_view == "共同 + FRD (yyems + frd)":
+                        df_filtered = df_filtered[df_filtered["Ownership_lower"].isin(["yyems", "frd"])]
+                    elif ownership_view == "共同 + CTY (yyems + cty)":
+                        df_filtered = df_filtered[df_filtered["Ownership_lower"].isin(["yyems", "cty"])]
+                    df_filtered = df_filtered.drop(columns=["Ownership_lower"])
 
-            # 關鍵字過濾
+            # 2. 執行幣別過濾
+            if selected_currency != "全部 (All)" and "Currency" in df_filtered.columns:
+                df_filtered = df_filtered[df_filtered["Currency"] == selected_currency]
+
+            # 3. 執行關鍵字模糊搜尋
             if search_query:
                 search_mask = False
                 for col in ["description", "remark", "YYEMS ID", "auto_vendor_name"]:
@@ -632,37 +660,37 @@ elif st.session_state.current_page == "yyems_page":
                         search_mask |= df_filtered[col].astype(str).str.contains(search_query, case=False, na=False)
                 df_filtered = df_filtered[search_mask]
             
-            # 總金額卡片
-            total_calc_amount = df_filtered["auto_div_amount"].sum() if "auto_div_amount" in df_filtered.columns else 0.0
-            st.metric(label="💰 當前篩選條件下計算總額 (Total via auto_div_amount)", value=f"${total_calc_amount:,.2f}")
+            # 動態顯示當前所使用的計算基準
+            amt_label = "auto_amount (原始總額)" if target_amount_col == "auto_amount" else "auto_div_amount (分帳總額)"
+            total_calc_amount = df_filtered[target_amount_col].sum() if target_amount_col in df_filtered.columns else 0.0
+            st.metric(label=f"💰 當前篩選條件下計算總額 (基於 {amt_label})", value=f"${total_calc_amount:,.2f}")
             
             st.divider()
             
-            # --- 📅 🎯 核心邏輯：按月份排序並切片最近 5 個月 ---
+            # --- 🗂️ 歷史每月分類交叉透視表 (智慧月份滾動分頁版) ---
             st.write("### 🗂️ 歷史每月分類交叉透視表 (對標 Excel Pivot Table)")
             
             if "auto_stat_month" in df_filtered.columns and cat_col in df_filtered.columns:
-                # 1. 找出當前所有不重複的月份，並從「最新到最舊」排序 (例如 2026-07, 2026-06...)
                 all_months_sorted = sorted(df_filtered["auto_stat_month"].unique().tolist(), reverse=True)
                 
-                # 2. 初始化 Session State 分頁索引 (預設第 0 頁，也就是最新 5 個月)
                 if "yyems_month_page" not in st.session_state:
                     st.session_state.yyems_month_page = 0
                 
-                # 每頁顯示的月份數量
                 months_per_page = 5
-                max_pages = (len(all_months_sorted) - 1) // months_per_page
+                max_pages = max(0, (len(all_months_sorted) - 1) // months_per_page)
                 
-                # 計算當前頁面要抓取的月份範圍
+                # 防止切換過濾條件時頁碼溢出
+                if st.session_state.yyems_month_page > max_pages:
+                    st.session_state.yyems_month_page = max_pages
+                
                 start_idx = st.session_state.yyems_month_page * months_per_page
                 end_idx = start_idx + months_per_page
                 current_visible_months = all_months_sorted[start_idx:end_idx]
                 
-                # 3. 🎯 建立「前進/後退」翻頁按鈕控制區
+                # 🎯 完美的左右按鈕佈局（左舊、右新）
                 col_prev_btn, col_page_status, col_next_btn = st.columns([1, 2, 1])
                 
                 with col_prev_btn:
-                    # ⬅️ 往後看舊 5 個月（放左邊）
                     if st.button("⬅️ 往後看舊 5 個月", disabled=(st.session_state.yyems_month_page >= max_pages), use_container_width=True):
                         st.session_state.yyems_month_page += 1
                         st.rerun()
@@ -674,25 +702,23 @@ elif st.session_state.current_page == "yyems_page":
                         st.write("無月份資料")
                         
                 with col_next_btn:
-                    # ➡️ 往前看近 5 個月（放右邊）
                     if st.button("➡️ 往前看近 5 個月", disabled=(st.session_state.yyems_month_page == 0), use_container_width=True):
                         st.session_state.yyems_month_page -= 1
                         st.rerun()
                 
-                # 4. 根據切片出來的 5 個月，去過濾 DataFrame 資料
+                # 根據切片出來的 5 個月過濾數據
                 df_page_visible = df_filtered[df_filtered["auto_stat_month"].isin(current_visible_months)]
                 
                 if not df_page_visible.empty:
-                    # 建立交叉分析透視表 (將橫列依月份從小到大排序，方便左到右、上到下閱讀)
+                    # 🎯 建立透視表：加總值動態切換 target_amount_col (auto_amount 或 auto_div_amount)
                     pivot_df = df_page_visible.pivot_table(
-                        values="auto_div_amount",
+                        values=target_amount_col,
                         index="auto_stat_month",
                         columns=cat_col,
                         aggfunc="sum",
                         fill_value=0
                     ).sort_index(ascending=True)
                     
-                    # 計算這 5 個月的 Grand Total
                     pivot_df["Total Grand Total"] = pivot_df.sum(axis=1)
                     st.dataframe(pivot_df.style.format("{:,.2f}"), use_container_width=True)
                 else:
@@ -700,18 +726,18 @@ elif st.session_state.current_page == "yyems_page":
             
             st.divider()
             
-            # --- 🍕 3. 每月類別佔比分析 (圓餅圖選單也會跟著分頁連動) ---
+            # --- 🍕 每月類別佔比分析 (圓餅圖) ---
             st.write("### 🍕 每月類別佔比分析 (Category Analysis per Month)")
             if "auto_stat_month" in df_filtered.columns:
-                # 讓圓餅圖選單優先顯示目前透視表看得到的那 5 個月，體驗最順暢！
                 pie_months = current_visible_months if current_visible_months else all_months_sorted
                 
                 if pie_months:
                     selected_month = st.selectbox("📅 選擇要查看佔比的指定月份：", options=pie_months, index=0)
                     df_month = df_filtered[df_filtered["auto_stat_month"] == selected_month]
                     
-                    pie_data = df_month.groupby(cat_col)["auto_div_amount"].sum().reset_index()
-                    pie_data["display_amount"] = pie_data["auto_div_amount"].abs()
+                    # 🎯 圓餅圖加總目標亦同步連動 target_amount_col
+                    pie_data = df_month.groupby(cat_col)[target_amount_col].sum().reset_index()
+                    pie_data["display_amount"] = pie_data[target_amount_col].abs()
                     
                     if not pie_data.empty and pie_data["display_amount"].sum() > 0:
                         st.write(f"#### 📊 {selected_month} 月份 - 各類別金額與比例明細")
@@ -719,14 +745,14 @@ elif st.session_state.current_page == "yyems_page":
                         
                         with col_pie_table:
                             pie_data["比例 (%)"] = (pie_data["display_amount"] / pie_data["display_amount"].sum() * 100).round(1)
-                            st.dataframe(pie_data[[cat_col, "auto_div_amount", "比例 (%)"]].rename(columns={"auto_div_amount": "實際加總金額"}), use_container_width=True, hide_index=True)
+                            st.dataframe(pie_data[[cat_col, target_amount_col, "比例 (%)"]].rename(columns={target_amount_col: "實際加總金額"}), use_container_width=True, hide_index=True)
                             
                         with col_pie_chart:
                             import altair as alt
                             pie_chart = alt.Chart(pie_data).mark_arc(innerRadius=0, outerRadius=100).encode(
                                 theta=alt.Theta(field="display_amount", type="quantitative"),
                                 color=alt.Color(field=cat_col, type="nominal", legend=alt.Legend(title="分類")),
-                                tooltip=[alt.Tooltip(field=cat_col, title="分類"), alt.Tooltip(field="auto_div_amount", title="實際金額", format=",.2f"), alt.Tooltip(field="比例 (%)", title="佔比")]
+                                tooltip=[alt.Tooltip(field=cat_col, title="分類"), alt.Tooltip(field=target_amount_col, title="實際金額", format=",.2f"), alt.Tooltip(field="比例 (%)", title="佔比")]
                             ).properties(width=250, height=250)
                             st.altair_chart(pie_chart, use_container_width=True)
                     else:
@@ -734,7 +760,7 @@ elif st.session_state.current_page == "yyems_page":
             
             st.divider()
             
-            # --- 📜 4. 原始明細清單 ---
+            # --- 📜 原始明細清單 ---
             st.write(f"📋 **交易原始明細：共 {len(df_filtered)} 筆**")
             st.dataframe(df_filtered, use_container_width=True, hide_index=True)
             
