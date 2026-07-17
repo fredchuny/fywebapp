@@ -572,11 +572,34 @@ elif st.session_state.current_page == "yyems_page":
             
         st.caption("💡 系統已成功安全對接雲端 `525APP_yyems` 完整歷史數據庫")
         
-        # 使用快取機制一次性下載所有紀錄
         @st.cache_data(ttl=600)
         def load_all_yyems_data():
-            resp = st.session_state.supabase.table("525APP_yyems").select("*").order("DateTime", desc=True).execute()
-            return resp.data
+            all_records = []
+            chunk_size = 2000  # 每次抓 2000 筆
+            start = 0
+            
+            # 🚀 利用迴圈分批抓取，直到把 5,728 筆全部撈完
+            while True:
+                resp = st.session_state.supabase.table("525APP_yyems") \
+                    .select("*") \
+                    .range(start, start + chunk_size - 1) \
+                    .order("DateTime", desc=True) \
+                    .execute()
+                
+                data = resp.data
+                if not data:
+                    break
+                
+                all_records.extend(data)
+                start += chunk_size
+                
+                # 安全機制：如果抓到的數量少於 chunk_size，代表後面沒資料了
+                if len(data) < chunk_size:
+                    break
+                    
+            return all_records
+        # 使用快取機制一次性下載所有紀錄
+              
 
         records = load_all_yyems_data()
         
