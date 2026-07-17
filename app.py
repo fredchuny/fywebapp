@@ -152,6 +152,10 @@ t = {
         "bujo_title": "📓 個人子彈隨筆筆記", "bujo_log_section": "### ✍🏼 新增子彈筆記", "bujo_type_lbl": "選擇筆記類型 (Bullet Icon)", "bujo_content_lbl": "筆記內容 (隨手記下今天發生的事情吧...)", "bujo_success": "✨ 成功將一筆子彈筆記儲存至日誌中！", "bujo_err": "⚠️ 內容空空的，寫點字再儲存吧！", "bujo_review_section": "### 📜 我的歷史子彈日誌", "bujo_col_time": "筆記時間", "bujo_col_type": "類型", "bujo_col_content": "內容明細", "bujo_no_data": "📭 目前還沒有寫下 any 子彈筆記喔。今天心情如何呢？",
         # 美食決策機
         "food_title": "🍱 今日食咩好？", "food_select_city": "🌍 選擇您目前所在的城市美食庫", "food_roll_section": "### 🎲 命運之輪：今天食咩好？", "food_roll_btn": "🎉 隨機幫我抽一個靈感！", "food_result_lbl": "💡 系統推薦您今天吃：", "food_empty_pool": "📭 目前的美食庫空空的，趕快在下方新增一些選項吧！", "food_add_section": "### ➕ 新增我的私藏美食選項", "food_name_lbl": "美食 / 餐廳 / 料理名稱 (例如：港式茶餐廳、Pho、乾炒牛河)", "food_privacy_lbl": "🔓 願意公開與所有人分享此美食選項 (不勾選則為個人私有)", "food_add_success": "🌟 成功將『{}』加入 {} 美食清單中！", "food_add_err": "⚠️ 請填寫美食名稱再行儲存！", "food_list_section": "### 📋 當前可抽獎的美食名單 (含個人私有與他人共享)", "col_food_name": "美食名稱", "col_food_src": "來源類型", "src_private": "🔒 僅自己可見 (Private)", "src_public": "🌐 眾人共享 (Shared)"
+        "btn_yyems_lab": "📊 進入 YYEMS 數據實驗室",
+"yyems_lab_title": "📊 525APP_yyems 數據實驗室",
+"yyems_lab_caption": "💡 目前讀取雲端資料表：`525APP_yyems`（限制顯示最新 50 筆紀錄）",
+"yyems_lab_err": "📭 該資料表目前沒有數據。請確認名稱是否符合 `525APP_yyems`，或 RLS 是否阻擋了讀取。",
     },
     "en": {
         "login_title": "👋🏼 Welcome to fywebapp",
