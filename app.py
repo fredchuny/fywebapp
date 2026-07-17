@@ -662,21 +662,21 @@ elif st.session_state.current_page == "yyems_page":
                 col_prev_btn, col_page_status, col_next_btn = st.columns([1, 2, 1])
                 
                 with col_prev_btn:
-                    # 往未來/更近的月份看（頁數減 1）
-                    if st.button("➡️ 往前看近 5 個月", disabled=(st.session_state.yyems_month_page == 0), use_container_width=True):
-                        st.session_state.yyems_month_page -= 1
+                    # ⬅️ 往後看舊 5 個月（放左邊）
+                    if st.button("⬅️ 往後看舊 5 個月", disabled=(st.session_state.yyems_month_page >= max_pages), use_container_width=True):
+                        st.session_state.yyems_month_page += 1
                         st.rerun()
                         
                 with col_page_status:
                     if current_visible_months:
-                        st.markdown(f"<p style='text-align: center; color: gray;'>📅 目前顯示：<b>{current_visible_months[-1]}</b> 至 <b>{current_visible_months[0]}</b> (第 {st.session_state.yyems_month_page + 1}/{max_pages + 1} 頁)</p>", unsafe_allow_html=True)
+                        st.markdown(f"<p style='text-align: center; color: gray; margin-top: 10px;'>📅 目前顯示：<b>{current_visible_months[-1]}</b> 至 <b>{current_visible_months[0]}</b> (第 {st.session_state.yyems_month_page + 1}/{max_pages + 1} 頁)</p>", unsafe_allow_html=True)
                     else:
                         st.write("無月份資料")
                         
                 with col_next_btn:
-                    # 往過去/更舊的月份看（頁數加 1）
-                    if st.button("⬅️ 往後看舊 5 個月", disabled=(st.session_state.yyems_month_page >= max_pages), use_container_width=True):
-                        st.session_state.yyems_month_page += 1
+                    # ➡️ 往前看近 5 個月（放右邊）
+                    if st.button("➡️ 往前看近 5 個月", disabled=(st.session_state.yyems_month_page == 0), use_container_width=True):
+                        st.session_state.yyems_month_page -= 1
                         st.rerun()
                 
                 # 4. 根據切片出來的 5 個月，去過濾 DataFrame 資料
