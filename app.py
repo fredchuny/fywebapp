@@ -666,7 +666,7 @@ elif st.session_state.current_page == "yyems_page":
             st.metric(label=f"💰 當前篩選條件下計算總額 (基於 {amt_label})", value=f"${total_calc_amount:,.2f}")
             
             st.divider()
-            
+
             # --- 🗂️ 歷史每月分類交叉透視表 (智慧月份滾動分頁版) ---
             st.write("### 🗂️ 歷史每月分類交叉透視表 (對標 Excel Pivot Table)")
             
@@ -687,7 +687,7 @@ elif st.session_state.current_page == "yyems_page":
                 end_idx = start_idx + months_per_page
                 current_visible_months = all_months_sorted[start_idx:end_idx]
                 
-                # 🎯 完美的左右按鈕佈局（左舊、右新）
+                # 完美的左右按鈕佈局（左舊、右新）
                 col_prev_btn, col_page_status, col_next_btn = st.columns([1, 2, 1])
                 
                 with col_prev_btn:
@@ -709,8 +709,9 @@ elif st.session_state.current_page == "yyems_page":
                 # 根據切片出來的 5 個月過濾數據
                 df_page_visible = df_filtered[df_filtered["auto_stat_month"].isin(current_visible_months)]
                 
+                # 🎯 這裡注意 if 縮排必須完美對齊上方的變數定義
                 if not df_page_visible.empty:
-                    # 🎯 建立透視表：加總值動態切換 target_amount_col (auto_amount 或 auto_div_amount)
+                    # 建立透視表
                     pivot_df = df_page_visible.pivot_table(
                         values=target_amount_col,
                         index="auto_stat_month",
@@ -720,23 +721,22 @@ elif st.session_state.current_page == "yyems_page":
                     ).sort_index(ascending=True)
                     
                     pivot_df["Total Grand Total"] = pivot_df.sum(axis=1)
-                    # 🎯 建立一個高效率的 CSS 著色函數：負數變紅，正數變綠，0 保持灰色
-                def color_negative_positive(val):
-                    if val < 0:
-                        return 'color: #D32F2F; font-weight: bold;'  # 高質感明亮紅
-                    elif val > 0:
-                        return 'color: #388E3C; font-weight: bold;'  # 高質感明亮綠
-                    return 'color: #A0A0A0;'  # 零金額保持淡灰色不干擾視覺
-                
-                # 將顏色函數與千分位數字格式化完美鏈接，直接渲染
-                styled_pivot = pivot_df.style.format("{:,.2f}").map(color_negative_positive)
-                
-                st.dataframe(styled_pivot, use_container_width=True)
                     
+                    # 🎯 我們剛剛新加入的 CSS 紅綠著色邏輯（確保定義在 st.dataframe 之前）
+                    def color_negative_positive(val):
+                        if val < 0:
+                            return 'color: #D32F2F; font-weight: bold;'  # 負數明亮紅
+                        elif val > 0:
+                            return 'color: #388E3C; font-weight: bold;'  # 正數明亮綠
+                        return 'color: #A0A0A0;'  # 零保持淡灰色
                     
+                    # 格式化並注入顏色
+                    styled_pivot = pivot_df.style.format("{:,.2f}").map(color_negative_positive)
+                    st.dataframe(styled_pivot, use_container_width=True)
                 else:
                     st.info("ℹ️ 該頁面範圍內無可顯示的數據。")
-            
+
+                        
             st.divider()
             
             # --- 🍕 每月類別佔比分析 (圓餅圖) ---
