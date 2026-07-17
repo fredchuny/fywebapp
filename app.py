@@ -254,7 +254,7 @@ elif st.session_state.current_page == "dashboard":
     if perms.get("can_access_food_picker"):
         active_modules.append({"label": f"🍱\n{t[lang]['btn_food']}", "page": "food_module"})
     if perms.get("can_access_525APP_yyems"):
-        active_modules.append({"label": f"📊\n{t[lang]['btn_yyems_lab']}", "page": "yyems_lab"})
+        active_modules.append({"label": f"📊\n{t[lang]['btn_yyems_lab']}", "page": "yyems_page"})
 
     if not active_modules:
         st.warning(t[lang]["no_perm"])
