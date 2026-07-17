@@ -720,7 +720,20 @@ elif st.session_state.current_page == "yyems_page":
                     ).sort_index(ascending=True)
                     
                     pivot_df["Total Grand Total"] = pivot_df.sum(axis=1)
-                    st.dataframe(pivot_df.style.format("{:,.2f}"), use_container_width=True)
+                    # 🎯 建立一個高效率的 CSS 著色函數：負數變紅，正數變綠，0 保持灰色
+                def color_negative_positive(val):
+                    if val < 0:
+                        return 'color: #D32F2F; font-weight: bold;'  # 高質感明亮紅
+                    elif val > 0:
+                        return 'color: #388E3C; font-weight: bold;'  # 高質感明亮綠
+                    return 'color: #A0A0A0;'  # 零金額保持淡灰色不干擾視覺
+                
+                # 將顏色函數與千分位數字格式化完美鏈接，直接渲染
+                styled_pivot = pivot_df.style.format("{:,.2f}").map(color_negative_positive)
+                
+                st.dataframe(styled_pivot, use_container_width=True)
+                    
+                    
                 else:
                     st.info("ℹ️ 該頁面範圍內無可顯示的數據。")
             
