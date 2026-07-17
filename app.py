@@ -684,10 +684,26 @@ elif st.session_state.current_page == "yyems_page":
                             )
                             
                         with col_pie_chart:
-                            # 🎯 終極修復：完全不用 plotly / matplotlib！
-                            # 直接使用 Streamlit 內建原生 st.bar_chart 來表達該月各分類的相對佔比
-                            chart_data = pie_data.set_index(cat_col)[["display_amount"]].rename(columns={"display_amount": "佔比權重 (絕對值)"})
-                            st.bar_chart(chart_data, use_container_width=True)
+                            # 🎯 終極完美解法：使用 Streamlit 內建隨附的 Altair 繪製互動式正統圓餅圖！
+                            import altair as alt
+                            
+                            # 建立 Altair 圓餅圖配置
+                            pie_chart = alt.Chart(pie_data).mark_arc(innerRadius=0, outerRadius=100).encode(
+                                theta=alt.Theta(field="display_amount", type="quantitative"),
+                                color=alt.Color(field=cat_col, type="nominal", legend=alt.Legend(title="分類")),
+                                tooltip=[
+                                    alt.Tooltip(field=cat_col, title="分類"),
+                                    alt.Tooltip(field="auto_div_amount", title="實際金額", format=",.2f"),
+                                    alt.Tooltip(field="比例 (%)", title="佔比")
+                                ]
+                            ).properties(
+                                width=250,
+                                height=250
+                            )
+                            
+                            # 用 Streamlit 原生命令渲染
+                            st.altair_chart(pie_chart, use_container_width=True)
+                            
                     else:
                         st.info("ℹ️ 該月份無足夠的金額數據生成圖表。")
                 else:
