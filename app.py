@@ -550,7 +550,7 @@ elif st.session_state.current_page == "food_module":
         st.dataframe(pd.DataFrame(display_list), use_container_width=True, hide_index=True)
 
 # =========================================================================
-# 頁面 G：525APP_yyems 獨立核心數據與圖表分析面板
+# 頁面 G：525APP_yyems 獨立核心數據與圖表分析面板 (財務透視與每月圓餅圖版)
 # =========================================================================
 elif st.session_state.current_page == "yyems_page":
     st.title(t[lang]["yyems_lab_title"])
@@ -565,14 +565,14 @@ elif st.session_state.current_page == "yyems_page":
         st.rerun()
         
     try:
-        # 安全機制：確保每次執行都檢查並自動刷新 Session / RLS 憑證
+        # 安全機制
         session = st.session_state.supabase.auth.get_session()
         if session: 
             st.session_state.supabase.postgrest.auth(session.access_token)
             
         st.caption("💡 系統已成功安全對接雲端 `525APP_yyems` 完整歷史數據庫")
         
-        # 🎯 使用快取機制一次性下載所有紀錄（包含 auto_ 開頭的 Excel 衍生計算欄位）
+        # 使用快取機制一次性下載所有紀錄
         @st.cache_data(ttl=600)
         def load_all_yyems_data():
             resp = st.session_state.supabase.table("525APP_yyems").select("*").order("DateTime", desc=True).execute()
@@ -586,48 +586,41 @@ elif st.session_state.current_page == "yyems_page":
             # 轉換為 DataFrame
             df_all = pd.DataFrame(records)
             
-            # 確保金額欄位與月份欄位格式正確
+            # 資料清洗與格式確保
             if "auto_div_amount" in df_all.columns:
                 df_all["auto_div_amount"] = pd.to_numeric(df_all["auto_div_amount"], errors='coerce').fillna(0)
             if "auto_stat_month" in df_all.columns:
                 df_all["auto_stat_month"] = df_all["auto_stat_month"].astype(str)
+                # 排除可能無效的月份資料
+                df_all = df_all[df_all["auto_stat_month"] != "nan"]
+            
+            # 確保有分類欄位，若名稱不同請依實際情況微調
+            cat_col = "auto_vendor_一級分類" if "auto_vendor_一級分類" in df_all.columns else "In_or_out"
             
             # --- 🔍 專屬高級雙過濾控制面板 ---
             st.write("### 🎛️ 專屬財務分流與搜尋控制")
-            
             col_view, col_search = st.columns([1, 1])
             
             with col_view:
-                # 🎯 你的核心需求：特定 Ownership 組合分流切換器
                 ownership_view = st.radio(
                     "📊 選擇分流視角 (Ownership Filter)",
-                    options=[
-                        "全部顯示 (Show All Records)", 
-                        "共同 + FRD (yyems + frd)", 
-                        "共同 + CTY (yyems + cty)"
-                    ],
+                    options=["全部顯示 (Show All Records)", "共同 + FRD (yyems + frd)", "共同 + CTY (yyems + cty)"],
                     index=0
                 )
             with col_search:
                 search_query = st.text_input("🔍 關鍵字搜尋 (備註、說明、商家或 ID)", "")
                 
-            # 開始利用 Pandas 在記憶體內進行極速多重條件過濾
+            # 利用 Pandas 在記憶體內過濾
             df_filtered = df_all.copy()
             
-            # 1. 執行你的專屬 Ownership 組合過濾
             if "Ownership" in df_filtered.columns:
-                # 先將資料中的字串轉為小寫方便比對
                 df_filtered["Ownership_lower"] = df_filtered["Ownership"].astype(str).str.lower()
-                
                 if ownership_view == "共同 + FRD (yyems + frd)":
                     df_filtered = df_filtered[df_filtered["Ownership_lower"].isin(["yyems", "frd"])]
                 elif ownership_view == "共同 + CTY (yyems + cty)":
                     df_filtered = df_filtered[df_filtered["Ownership_lower"].isin(["yyems", "cty"])]
-                    
-                # 刪除暫時使用的輔助欄位
                 df_filtered = df_filtered.drop(columns=["Ownership_lower"])
 
-            # 2. 執行關鍵字模糊搜尋
             if search_query:
                 search_mask = False
                 for col in ["description", "remark", "YYEMS ID", "auto_vendor_name"]:
@@ -637,41 +630,81 @@ elif st.session_state.current_page == "yyems_page":
             
             st.divider()
             
-            # --- 📊 財務指標快報與月份對比 (KPI Metrics & Charts) ---
-            st.write("### 📈 數據分析與歷史月份對比")
-            
-            # 🎯 計算對應流向的精確總金額（使用 auto_div_amount）
+            # 計算當前篩選下的總計
             total_calc_amount = df_filtered["auto_div_amount"].sum() if "auto_div_amount" in df_filtered.columns else 0.0
+            st.metric(label="💰 當前篩選條件下計算總額 (Total via auto_div_amount)", value=f"${total_calc_amount:,.2f}")
             
-            # 用大卡片突顯當前篩選下的總計
-            st.metric(
-                label=f"💰 當前篩選條件下計算總額 (Total via auto_div_amount)", 
-                value=f"${total_calc_amount:,.2f}"
-            )
-            
-            # 🎯 建立「按月對比圖表」：將資料依月份分群並加總金額
-            if "auto_stat_month" in df_filtered.columns and "auto_div_amount" in df_filtered.columns:
-                # 按月份分組計算加總，並排除空月份
-                monthly_summary = df_filtered.groupby("auto_stat_month")["auto_div_amount"].sum().reset_index()
-                monthly_summary = monthly_summary[monthly_summary["auto_stat_month"] != "nan"].sort_values("auto_stat_month")
-                
-                if not monthly_summary.empty:
-                    # 使用 Streamlit 內建的原生長條圖/折線圖進行高效率月份對比
-                    st.write("#### 📅 歷史每月分帳總額對比趨勢")
-                    
-                    # 這裡使用 st.bar_chart 顯示月份對比長條圖，x 軸為月份，y 軸為總金額
-                    st.bar_chart(data=monthly_summary, x="auto_stat_month", y="auto_div_amount", use_container_width=True)
-                else:
-                    st.info("ℹ️ 當前篩選條件下無足夠的月份數據生成圖表。")
-                    
             st.divider()
             
-            # --- 📜 明細表格顯示 ---
-            st.write(f"📋 **交易明細清單：共 {len(df_filtered)} 筆紀錄** (總庫：{len(df_all)} 筆)")
+            # --- 📊 需求 1：完美複製 Excel 交叉分析樞紐表 (Pivot Table Matrix) ---
+            st.write("### 🗂️ 歷史每月分類交叉透視表 (對標 Excel Pivot Table)")
+            st.caption("💡 這對齊了你截圖中的 Google Sheets 功能：橫列為月份、縱欄為分類、格內為 `auto_div_amount` 加總。")
+            
+            if "auto_stat_month" in df_filtered.columns and cat_col in df_filtered.columns:
+                # 建立透視表
+                pivot_df = df_filtered.pivot_table(
+                    values="auto_div_amount",
+                    index="auto_stat_month",
+                    columns=cat_col,
+                    aggfunc="sum",
+                    fill_value=0
+                ).sort_index(ascending=True)
+                
+                # 計算 Grand Total（橫列與縱欄的加總）
+                pivot_df["Total Grand Total"] = pivot_df.sum(axis=1)
+                
+                # 為了讓外觀與 Excel 類似，使用 dataframe 漂亮渲染並帶有負數辨識能力
+                st.dataframe(pivot_df.style.format("{:,.2f}").background_gradient(cmap="RdYlGn", axis=0), use_container_width=True)
+            
+            st.divider()
+            
+            # --- 🍕 需求 2：自訂月份比較與每月圓餅圖區塊 ---
+            st.write("### 🍕 每月類別佔比分析 (Pie Chart per Month)")
+            
+            if "auto_stat_month" in df_filtered.columns:
+                # 抓出當前篩選資料中所有可用的月份清單
+                available_months = sorted(df_filtered["auto_stat_month"].unique().tolist(), reverse=True)
+                
+                if available_months:
+                    # 讓使用者自由挑選想查看/比對哪一個月份的圓餅圖
+                    selected_month = st.selectbox("📅 選擇要查看佔比的指定月份：", options=available_months, index=0)
+                    
+                    # 過濾出該月份的數據
+                    df_month = df_filtered[df_filtered["auto_stat_month"] == selected_month]
+                    
+                    # 根據類別加總金額 (取絕對值以便圓餅圖能正常顯示比例，因記帳常有負數)
+                    pie_data = df_month.groupby(cat_col)["auto_div_amount"].sum().reset_index()
+                    # 💡 對於記帳支出（負數），轉為正數來算佔比
+                    pie_data["display_amount"] = pie_data["auto_div_amount"].abs()
+                    
+                    if not pie_data.empty and pie_data["display_amount"].sum() > 0:
+                        # 建立圓餅圖數據字典，以便使用 streamlit 原生組件或做清晰清單
+                        st.write(f"#### 📊 {selected_month} 月份 - 各類別金額與比例明細")
+                        
+                        col_pie_chart, col_pie_table = st.columns([1, 1])
+                        with col_pie_table:
+                            # 顯示數值清單對照
+                            pie_data["比例 (%)"] = (pie_data["display_amount"] / pie_data["display_amount"].sum() * 100).round(1)
+                            st.dataframe(
+                                pie_data[[cat_col, "auto_div_amount", "比例 (%)"]].rename(columns={"auto_div_amount": "實際加總金額"}),
+                                use_container_width=True, hide_index=True
+                            )
+                        with col_pie_chart:
+                            # 使用 Streamlit 內建高效率圖表呈現佔比關係
+                            st.pyplot(df_month.groupby(cat_col)["auto_div_amount"].sum().plot.pie(autopct='%1.1f%%', ylabel='').get_figure())
+                    else:
+                        st.info("ℹ️ 該月份無足夠的金額數據生成圓餅圖。")
+                else:
+                    st.info("📭 沒有可用的月份數據。")
+            
+            st.divider()
+            
+            # --- 📜 原始明細清單 ---
+            st.write(f"📋 **交易原始明細：共 {len(df_filtered)} 筆**")
             st.dataframe(df_filtered, use_container_width=True, hide_index=True)
             
     except Exception as e:
-        st.error(f"Error connecting to Supabase or processing data: {e}")
+        st.error(f"Error processing visual dashboard: {e}")
 
 
 
