@@ -93,18 +93,20 @@ if "supabase" not in st.session_state:
 # 安全機制：確保每次執行都檢查並自動刷新 Session / RLS 憑證
 def sync_supabase_auth():
     try:
-        # get_session() 會在背後自動處理 Token 刷新
         session = st.session_state.supabase.auth.get_session()
         if session and session.access_token:
             st.session_state.supabase.postgrest.auth(session.access_token)
     except Exception as e:
-        # 如果 Token 徹底過期或無效，清空 session 並導回登入頁
         st.session_state.user = None
-        st.session_state.current_page = "login"
 
 if "user" not in st.session_state: st.session_state.user = None
 if "permissions" not in st.session_state: st.session_state.permissions = {}
 if "current_page" not in st.session_state: st.session_state.current_page = "login"
+
+# 🎯 路由防護：允許未登入存取的公開頁面
+PUBLIC_PAGES = ["login", "quiz", "result"]
+if st.session_state.user is None and st.session_state.current_page not in PUBLIC_PAGES:
+    st.session_state.current_page = "login"
 
 # 執行 RLS 身分同步
 if st.session_state.user:
@@ -124,6 +126,7 @@ t = {
         "email_label": "電子信箱 (Email)",
         "pass_label": "安全密碼 (Password)",
         "login_btn": "安全登入 🚀",
+        "guest_btn": "📋 免登入直接填寫 PHQ-9 問卷",
         "logout_btn": "🚪 安全登出系統",
         "login_fail": "❌ 登入失敗：請確認帳號或密碼是否輸入正確。",
         "dash_title": "🌐 FY Web App 主控制面板",
@@ -137,6 +140,7 @@ t = {
         "btn_analytics": "📈 進入 機構數據分析後台 (未來擴充)",
         "no_perm": "⚠️ 您的帳號目前尚未指派權限。請聯絡管理員幫您開啟權限喔！",
         "btn_back_dash": "⬅️ 返回 fywebapp 主面板",
+        "btn_back_login": "⬅️ 返回登入頁面",
         # PHQ-9
         "phq9_title": "📝 PHQ-9 抑鬱症狀臨床評估", "phq9_subtitle": "📋 患者健康問卷 (PHQ-9)",
         "p_info_title": "### 🧑‍🦽 1. 患者基本資訊", "p_id_label": "患者編號 / 識別代碼 (必填)", "p_id_placeholder": "例如: Pt_Chen 或 P0001",
@@ -161,6 +165,7 @@ t = {
         "email_label": "Email Address",
         "pass_label": "Password",
         "login_btn": "Secure Login 🚀",
+        "guest_btn": "📋 Take PHQ-9 Questionnaire without Login",
         "logout_btn": "🚪 Secure Logout",
         "login_fail": "❌ Login failed. Please double-check your email and password.",
         "dash_title": "🌐 FY Web App Main Dashboard",
@@ -174,6 +179,7 @@ t = {
         "btn_analytics": "📈 Access Insights & Analytics Backoffice (Coming Soon)",
         "no_perm": "⚠️ Your account currently has no modules assigned. Please contact the administrator to grant permissions.",
         "btn_back_dash": "⬅️ Back to fywebapp Dashboard",
+        "btn_back_login": "⬅️ Back to Login",
         # PHQ-9
         "phq9_title": "📝 PHQ-9 Depression Clinical Assessment", "phq9_subtitle": "📋 Patient Health Questionnaire (PHQ-9)",
         "p_info_title": "### 🧑‍🦽 1. Patient Information", "p_id_label": "Patient ID / Identifier (Required)", "p_id_placeholder": "e.g., Pt_Chen or P0001",
@@ -194,7 +200,7 @@ t = {
 }
 
 # 全域側邊欄登出控制
-if st.session_state.current_page != "login":
+if st.session_state.user is not None and st.session_state.current_page != "login":
     if st.sidebar.button(t[lang]["logout_btn"]):
         st.session_state.supabase.auth.sign_out()
         st.session_state.user = None
@@ -230,8 +236,14 @@ if st.session_state.current_page == "login":
             except Exception:
                 st.error(t[lang]["login_fail"])
 
+    # 🎯 免登入訪客問卷入口按鈕
+    st.divider()
+    if st.button(t[lang]["guest_btn"], use_container_width=True):
+        st.session_state.current_page = "quiz"
+        st.rerun()
+
 # =========================================================================
-# 頁面 B：中央主控面板 (已將可用模組升級為醒目大按鈕)
+# 頁面 B：中央主控面板
 # =========================================================================
 elif st.session_state.current_page == "dashboard":
     st.title(t[lang]["dash_title"])
@@ -240,9 +252,6 @@ elif st.session_state.current_page == "dashboard":
     st.write(t[lang]["dash_section"])
     
     perms = st.session_state.permissions
-    
-    # 開始建立雙欄網格
-    # 這裡我們用一個清單來動態收集目前「有權限開啟」的模組
     active_modules = []
     
     if perms.get("can_access_phq9"):
@@ -259,26 +268,19 @@ elif st.session_state.current_page == "dashboard":
     if not active_modules:
         st.warning(t[lang]["no_perm"])
     else:
-        # 每兩個模組分配到一列 (Row)
         for i in range(0, len(active_modules), 2):
             cols = st.columns(2)
-            
-            # 第一欄卡片
             if i < len(active_modules):
                 with cols[0]:
-                    # 使用 \n 換行，讓 Emoji 在上、文字在下
                     if st.button(active_modules[i]["label"], key=f"grid_{i}", use_container_width=True):
                         st.session_state.current_page = active_modules[i]["page"]
                         st.rerun()
-            
-            # 第二欄卡片
             if i + 1 < len(active_modules):
                 with cols[1]:
                     if st.button(active_modules[i+1]["label"], key=f"grid_{i+1}", use_container_width=True):
                         st.session_state.current_page = active_modules[i+1]["page"]
                         st.rerun()
 
-        # ⏳ 未來擴充模組（保持在網格下方，提示使用者這是即將推出的功能）
         st.divider()
         st.write("### ⏳ 未來擴充功能 (Coming Soon)")
         cols_future = st.columns(2)
@@ -288,16 +290,22 @@ elif st.session_state.current_page == "dashboard":
             st.button(t[lang]["btn_analytics"], use_container_width=True, disabled=True)
 
 # =========================================================================
-# 頁面 C-1：PHQ-9 問卷作答頁面 (動態雙語切換與資料庫讀取版)
+# 頁面 C-1：PHQ-9 問卷作答頁面 (支援未登入訪客作答)
 # =========================================================================
 elif st.session_state.current_page == "quiz":
-    if not st.session_state.permissions.get("can_access_phq9"): 
+    # 🎯 只有在「已登入」且「權限關閉」的情況下才阻擋；未登入訪客放行
+    if st.session_state.user and not st.session_state.permissions.get("can_access_phq9", True): 
         st.session_state.current_page = "dashboard"
         st.rerun()
         
     st.title(t[lang]["phq9_title"])
-    if st.sidebar.button(t[lang]["btn_back_dash"], key="back_quiz"): 
-        st.session_state.current_page = "dashboard"
+    
+    # 🎯 動態返回按鈕目標
+    back_btn_label = t[lang]["btn_back_dash"] if st.session_state.user else t[lang]["btn_back_login"]
+    back_target = "dashboard" if st.session_state.user else "login"
+    
+    if st.sidebar.button(back_btn_label, key="back_quiz"): 
+        st.session_state.current_page = back_target
         st.rerun()
         
     st.subheader(t[lang]["phq9_subtitle"])
@@ -336,7 +344,6 @@ elif st.session_state.current_page == "quiz":
             link_id = q["link_id"]
             order = q["display_order"]
             
-            # 🎯 根據頂部切換的語言 (lang) 動態選擇題目文字
             q_text = q["question_text_zh"] if lang == "zh" and q.get("question_text_zh") else q["question_text"]
             prompt = f"{order}. {q_text}"
 
@@ -363,8 +370,11 @@ elif st.session_state.current_page == "quiz":
                     if session: 
                         st.session_state.supabase.postgrest.auth(session.access_token)
                     
+                    # 🎯 訪客提交時 user_id 填入 None
+                    current_user_id = st.session_state.user.id if st.session_state.user else None
+
                     payload = {
-                        "user_id": st.session_state.user.id,
+                        "user_id": current_user_id,
                         "patient_id": patient_id.strip(),
                         "questionnaire_id": "phq-9",
                         "answers": user_answers,
@@ -384,15 +394,16 @@ elif st.session_state.current_page == "quiz":
                     st.error(f"❌ 儲存失敗，請檢查 RLS 權限或連線狀況：{e}")
 
     with col_go_hist:
-        if st.button(t[lang]["view_hist_btn"], use_container_width=True): 
-            st.session_state.current_page = "history"
-            st.rerun()
+        # 僅限已登入工作人員查看歷史紀錄
+        if st.session_state.user:
+            if st.button(t[lang]["view_hist_btn"], use_container_width=True): 
+                st.session_state.current_page = "history"
+                st.rerun()
 
 # =========================================================================
 # 頁面 C-2：PHQ-9 評估結果頁面
 # =========================================================================
 elif st.session_state.current_page == "result":
-    # 預防 Session 變數遺失的保護機制
     p_name = st.session_state.get("last_patient", "N/A")
     p_score = st.session_state.get("last_score", 0)
     p_severity = st.session_state.get("last_severity", get_severity(p_score, lang=lang))
@@ -416,17 +427,25 @@ elif st.session_state.current_page == "result":
             st.session_state.current_page = "quiz"
             st.rerun()
     with col_hist:
-        if st.button(t[lang]["btn_all_hist"], use_container_width=True): 
-            st.session_state.current_page = "history"
-            st.rerun()
+        if st.session_state.user:
+            if st.button(t[lang]["btn_all_hist"], use_container_width=True): 
+                st.session_state.current_page = "history"
+                st.rerun()
+        else:
+            if st.button(t[lang]["btn_back_login"], use_container_width=True):
+                st.session_state.current_page = "login"
+                st.rerun()
 
 # =========================================================================
-# 頁面 C-3：PHQ-9 歷史紀錄頁面 (讀取 patient_responses)
+# 頁面 C-3：PHQ-9 歷史紀錄頁面 (僅限登入人員)
 # =========================================================================
 elif st.session_state.current_page == "history":
+    if not st.session_state.user:
+        st.session_state.current_page = "login"
+        st.rerun()
+
     st.subheader(t[lang]["hist_title"])
     
-    # 返回按鈕 (頂部與側邊欄)
     if st.button(t[lang]["btn_back_dash"], key="top_back_hist"):
         st.session_state.current_page = "quiz"
         st.rerun()
@@ -447,7 +466,6 @@ elif st.session_state.current_page == "history":
         if session: 
             st.session_state.supabase.postgrest.auth(session.access_token)
         
-        # 1. 查詢 patient_responses 中的 PHQ-9 紀錄
         response = st.session_state.supabase.table("patient_responses") \
             .select("created_at, patient_id, total_score, answers") \
             .eq("questionnaire_id", "phq-9") \
@@ -505,7 +523,6 @@ elif st.session_state.current_page == "water_module":
         notes = st.text_input(t[lang]["water_notes"], placeholder=t[lang]["water_notes_placeholder"])
         water_submit = st.form_submit_button("💾 Save")
         
-        # 🎯 修正後的安全表單驗證：獨立在按鈕觸發內判斷
         if water_submit:
             if amount > 0:
                 try:
@@ -550,7 +567,6 @@ elif st.session_state.current_page == "bujo_module":
         b_content = st.text_area(t[lang]["bujo_content_lbl"], height=100)
         bujo_submit = st.form_submit_button("💾 Save Entry")
         
-        # 🎯 修正後的安全表單驗證：獨立在按鈕區塊內部驗證
         if bujo_submit:
             if b_content.strip():
                 try:
@@ -578,7 +594,7 @@ elif st.session_state.current_page == "bujo_module":
     except Exception as e: st.error(f"Error: {e}")
 
 # =========================================================================
-# 頁面 F：🍱 今日美食決策抽獎機模組 (支援私有 / 共享 隱私分流)
+# 頁面 F：🍱 今日美食決策抽獎機模組
 # =========================================================================
 elif st.session_state.current_page == "food_module":
     if not st.session_state.permissions.get("can_access_food_picker"):
@@ -588,26 +604,22 @@ elif st.session_state.current_page == "food_module":
     if st.sidebar.button(t[lang]["btn_back_dash"], key="back_food"):
         st.session_state.current_page = "dashboard"; st.rerun()
         
-    # 城市大分類選擇器
     st.write(t[lang]["food_select_city"])
     city_choice = st.radio("📍 City / 城市", options=["Hong Kong", "Toronto"], horizontal=True)
     st.divider()
     
-    # 讀取符合權限的安全美食池（我自己建立的 OR 別人公開分享的）
     food_pool = []
     raw_items = []
     try:
         session = st.session_state.supabase.auth.get_session()
         if session: st.session_state.supabase.postgrest.auth(session.access_token)
         
-        # 🎯 這裡由 RLS 安全規則自動幫我們過濾出了：(我的私有選項) + (全平台共用的公開選項)
         resp = st.session_state.supabase.table("food_options").select("id, food_name, is_public, user_id").eq("city", city_choice).execute()
         raw_items = resp.data
         food_pool = [item["food_name"] for item in raw_items]
     except Exception as e:
         st.error(f"Error loading food pool: {e}")
 
-    # 1. 隨機抽獎按鈕區塊
     st.write(t[lang]["food_roll_section"])
     if not food_pool:
         st.warning(t[lang]["food_empty_pool"])
@@ -619,11 +631,9 @@ elif st.session_state.current_page == "food_module":
             
     st.divider()
     
-    # 2. 新增美食選項表單 (帶有「公開/私有」隱私開關)
     st.write(t[lang]["food_add_section"])
     with st.form("add_food_form"):
         new_food = st.text_input(t[lang]["food_name_lbl"])
-        # 🎯 隱私設定開關：預設不勾選（私有🔒），勾選則為所有人共享（🌐）
         is_public_checked = st.checkbox(t[lang]["food_privacy_lbl"], value=False)
         food_add_submit = st.form_submit_button("➕ Save Food / 儲存選項")
         
@@ -637,7 +647,7 @@ elif st.session_state.current_page == "food_module":
                         "user_id": st.session_state.user.id,
                         "city": city_choice,
                         "food_name": new_food.strip(),
-                        "is_public": is_public_checked  # 寫入隱私設定
+                        "is_public": is_public_checked
                     }).execute()
                     st.success(t[lang]["food_add_success"].format(new_food.strip(), city_choice))
                     st.rerun()
@@ -648,7 +658,6 @@ elif st.session_state.current_page == "food_module":
                 
     st.divider()
     
-    # 3. 顯示目前擁有的名單表格 (清晰標記出它是私房選項還是大眾共享)
     st.write(t[lang]["food_list_section"])
     if raw_items:
         display_list = []
@@ -661,12 +670,11 @@ elif st.session_state.current_page == "food_module":
         st.dataframe(pd.DataFrame(display_list), use_container_width=True, hide_index=True)
 
 # =========================================================================
-# 頁面 G：525APP_yyems 獨立核心數據面板 (動態金額切換與幣別過濾版)
+# 頁面 G：525APP_yyems 獨立核心數據面板
 # =========================================================================
 elif st.session_state.current_page == "yyems_page":
     st.title(t[lang]["yyems_lab_title"])
     
-    # 頂部與側邊欄雙返回機制
     if st.button(t[lang]["btn_back_dash"], key="top_back_yyems"):
         st.session_state.current_page = "dashboard"
         st.rerun()
@@ -676,14 +684,12 @@ elif st.session_state.current_page == "yyems_page":
         st.rerun()
         
     try:
-        # 安全機制
         session = st.session_state.supabase.auth.get_session()
         if session: 
             st.session_state.supabase.postgrest.auth(session.access_token)
             
         st.caption("💡 系統已成功安全對接雲端 `525APP_yyems` 完整歷史數據庫")
         
-        # 使用快取機制一次性下載所有紀錄
         @st.cache_data(ttl=600)
         def load_all_yyems_data():
             all_records = []
@@ -707,7 +713,6 @@ elif st.session_state.current_page == "yyems_page":
         else:
             df_all = pd.DataFrame(records)
             
-            # 資料清洗：同時確保兩個金額欄位都是數值格式
             if "auto_amount" in df_all.columns:
                 df_all["auto_amount"] = pd.to_numeric(df_all["auto_amount"], errors='coerce').fillna(0)
             if "auto_div_amount" in df_all.columns:
@@ -719,9 +724,7 @@ elif st.session_state.current_page == "yyems_page":
             
             cat_col = "auto_vendor_一級分類" if "auto_vendor_一級分類" in df_all.columns else "In_or_out"
             
-            # --- 🔍 專屬高級多功能過濾控制面板 ---
             st.write("### 🎛️ 專屬財務分流與搜尋控制")
-            
             col_view, col_currency, col_search = st.columns([1.5, 1, 1.5])
             
             with col_view:
@@ -732,7 +735,6 @@ elif st.session_state.current_page == "yyems_page":
                 )
             
             with col_currency:
-                # 🎯 新增功能：從資料庫中動態抓取所有現有的幣別建立選單
                 if "Currency" in df_all.columns:
                     available_currencies = ["全部 (All)"] + sorted(df_all["Currency"].dropna().unique().tolist())
                 else:
@@ -742,12 +744,9 @@ elif st.session_state.current_page == "yyems_page":
             with col_search:
                 search_query = st.text_input("🔍 關鍵字搜尋 (備註、說明、商家或 ID)", "")
                 
-            # 開始過濾資料
             df_filtered = df_all.copy()
             
-            # 1. 執行 Ownership 篩選，並動態決定計算目標欄位
             if ownership_view == "全部顯示 (Show All Records)":
-                # 🎯 核心需求：全部顯示時，目標計算欄位切換為 auto_amount
                 target_amount_col = "auto_amount"
             else:
                 target_amount_col = "auto_div_amount"
@@ -759,11 +758,9 @@ elif st.session_state.current_page == "yyems_page":
                         df_filtered = df_filtered[df_filtered["Ownership_lower"].isin(["yyems", "cty"])]
                     df_filtered = df_filtered.drop(columns=["Ownership_lower"])
 
-            # 2. 執行幣別過濾
             if selected_currency != "全部 (All)" and "Currency" in df_filtered.columns:
                 df_filtered = df_filtered[df_filtered["Currency"] == selected_currency]
 
-            # 3. 執行關鍵字模糊搜尋
             if search_query:
                 search_mask = False
                 for col in ["description", "remark", "YYEMS ID", "auto_vendor_name"]:
@@ -771,14 +768,12 @@ elif st.session_state.current_page == "yyems_page":
                         search_mask |= df_filtered[col].astype(str).str.contains(search_query, case=False, na=False)
                 df_filtered = df_filtered[search_mask]
             
-            # 動態顯示當前所使用的計算基準
             amt_label = "auto_amount (原始總額)" if target_amount_col == "auto_amount" else "auto_div_amount (分帳總額)"
             total_calc_amount = df_filtered[target_amount_col].sum() if target_amount_col in df_filtered.columns else 0.0
             st.metric(label=f"💰 當前篩選條件下計算總額 (基於 {amt_label})", value=f"${total_calc_amount:,.2f}")
             
             st.divider()
 
-            # --- 🗂️ 歷史每月分類交叉透視表 (智慧月份滾動分頁版) ---
             st.write("### 🗂️ 歷史每月分類交叉透視表 (對標 Excel Pivot Table)")
             
             if "auto_stat_month" in df_filtered.columns and cat_col in df_filtered.columns:
@@ -790,7 +785,6 @@ elif st.session_state.current_page == "yyems_page":
                 months_per_page = 5
                 max_pages = max(0, (len(all_months_sorted) - 1) // months_per_page)
                 
-                # 防止切換過濾條件時頁碼溢出
                 if st.session_state.yyems_month_page > max_pages:
                     st.session_state.yyems_month_page = max_pages
                 
@@ -798,7 +792,6 @@ elif st.session_state.current_page == "yyems_page":
                 end_idx = start_idx + months_per_page
                 current_visible_months = all_months_sorted[start_idx:end_idx]
                 
-                # 完美的左右按鈕佈局（左舊、右新）
                 col_prev_btn, col_page_status, col_next_btn = st.columns([1, 2, 1])
                 
                 with col_prev_btn:
@@ -817,12 +810,9 @@ elif st.session_state.current_page == "yyems_page":
                         st.session_state.yyems_month_page -= 1
                         st.rerun()
                 
-                # 根據切片出來的 5 個月過濾數據
                 df_page_visible = df_filtered[df_filtered["auto_stat_month"].isin(current_visible_months)]
                 
-                # 🎯 這裡注意 if 縮排必須完美對齊上方的變數定義
                 if not df_page_visible.empty:
-                    # 建立透視表
                     pivot_df = df_page_visible.pivot_table(
                         values=target_amount_col,
                         index="auto_stat_month",
@@ -833,24 +823,20 @@ elif st.session_state.current_page == "yyems_page":
                     
                     pivot_df["Total Grand Total"] = pivot_df.sum(axis=1)
                     
-                    # 🎯 我們剛剛新加入的 CSS 紅綠著色邏輯（確保定義在 st.dataframe 之前）
                     def color_negative_positive(val):
                         if val < 0:
-                            return 'color: #D32F2F; font-weight: bold;'  # 負數明亮紅
+                            return 'color: #D32F2F; font-weight: bold;'
                         elif val > 0:
-                            return 'color: #388E3C; font-weight: bold;'  # 正數明亮綠
-                        return 'color: #A0A0A0;'  # 零保持淡灰色
+                            return 'color: #388E3C; font-weight: bold;'
+                        return 'color: #A0A0A0;'
                     
-                    # 格式化並注入顏色
                     styled_pivot = pivot_df.style.format("{:,.2f}").map(color_negative_positive)
                     st.dataframe(styled_pivot, use_container_width=True)
                 else:
                     st.info("ℹ️ 該頁面範圍內無可顯示的數據。")
 
-                        
             st.divider()
             
-            # --- 🍕 每月類別佔比分析 (圓餅圖) ---
             st.write("### 🍕 每月類別佔比分析 (Category Analysis per Month)")
             if "auto_stat_month" in df_filtered.columns:
                 pie_months = current_visible_months if current_visible_months else all_months_sorted
@@ -859,7 +845,6 @@ elif st.session_state.current_page == "yyems_page":
                     selected_month = st.selectbox("📅 選擇要查看佔比的指定月份：", options=pie_months, index=0)
                     df_month = df_filtered[df_filtered["auto_stat_month"] == selected_month]
                     
-                    # 🎯 圓餅圖加總目標亦同步連動 target_amount_col
                     pie_data = df_month.groupby(cat_col)[target_amount_col].sum().reset_index()
                     pie_data["display_amount"] = pie_data[target_amount_col].abs()
                     
@@ -884,20 +869,13 @@ elif st.session_state.current_page == "yyems_page":
             
             st.divider()
             
-            # --- 📜 原始明細清單 ---
             st.write(f"📋 **交易原始明細：共 {len(df_filtered)} 筆**")
             st.dataframe(df_filtered, use_container_width=True, hide_index=True)
             
     except Exception as e:
         st.error(f"Error processing rolling visual dashboard: {e}")
 
-
-
-
-
-# =========================================================================
-# 未來擴充佔位頁面
-# =========================================================================
+# 未來擴充頁面
 elif st.session_state.current_page == "gad7_module":
     st.title(t[lang]["btn_gad7"])
     if st.button(t[lang]["btn_back_dash"]): st.session_state.current_page = "dashboard"; st.rerun()
@@ -907,5 +885,5 @@ elif st.session_state.current_page == "analytics_module":
 
 # 防錯預設落腳頁面
 else:
-    st.session_state.current_page = "dashboard"
+    st.session_state.current_page = "login"
     st.rerun()
