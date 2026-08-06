@@ -827,3 +827,8 @@ elif st.session_state.current_page == "gad7_module":
 elif st.session_state.current_page == "analytics_module":
     st.title(t[lang]["btn_analytics"])
     if st.button(t[lang]["btn_back_dash"]): st.session_state.current_page = "dashboard"; st.rerun()
+
+# 防錯預設落腳頁面
+else:
+    st.session_state.current_page = "dashboard"
+    st.rerun()
