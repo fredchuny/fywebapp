@@ -220,17 +220,6 @@ if st.session_state.user is not None and st.session_state.current_page != "login
 
 
 if st.session_state.current_page == "login":
-    # 🎯 免登入訪客按鈕區塊
-    st.divider()
-    col_guest1, col_guest2 = st.columns(2)
-    with col_guest1:
-        if st.button("📝 免登入填寫 PHQ-9", use_container_width=True, key="guest_phq9_btn"):
-            st.session_state.current_page = "quiz"
-            st.rerun()
-    with col_guest2:
-        if st.button("📋 免登入填寫 BDI-II", use_container_width=True, key="guest_bdi_btn"):
-            st.session_state.current_page = "bdi_quiz"
-            st.rerun()
     st.title(t[lang]["login_title"])
     st.subheader(t[lang]["login_subtitle"])
     st.write(t[lang]["login_desc"])
@@ -255,7 +244,17 @@ if st.session_state.current_page == "login":
                 st.rerun()
             except Exception:
                 st.error(t[lang]["login_fail"])
-
+    # 🎯 免登入訪客按鈕區塊
+    st.divider()
+    col_guest1, col_guest2 = st.columns(2)
+    with col_guest1:
+        if st.button("📝 免登入填寫 PHQ-9", use_container_width=True, key="guest_phq9_btn"):
+            st.session_state.current_page = "quiz"
+            st.rerun()
+    with col_guest2:
+        if st.button("📋 免登入填寫 BDI-II", use_container_width=True, key="guest_bdi_btn"):
+            st.session_state.current_page = "bdi_quiz"
+            st.rerun()
 
 # =========================================================================
 # 頁面 B：中央主控面板
