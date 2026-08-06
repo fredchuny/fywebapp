@@ -530,6 +530,126 @@ elif st.session_state.current_page == "history":
     except Exception as e: 
         st.error(f"❌ 讀取歷史紀錄失敗：{e}")
 
+# =========================================================================
+# 頁面 C-BDI：BDI-II 貝克抑鬱量表作答頁面 (獨立模組)
+# =========================================================================
+elif st.session_state.current_page == "bdi_quiz":
+    st.title(t[lang].get("bdi21_title", "📋 BDI-II 貝克抑鬱量表"))
+    
+    # 動態返回按鈕目標
+    back_btn_label = t[lang]["btn_back_dash"] if st.session_state.user else t[lang]["btn_back_login"]
+    back_target = "dashboard" if st.session_state.user else "login"
+    
+    if st.sidebar.button(back_btn_label, key="back_bdi"): 
+        st.session_state.current_page = back_target
+        st.rerun()
+        
+    st.subheader("📋 過去兩星期的情緒與生理狀況評估")
+    st.write(t[lang]["p_info_title"])
+    patient_id = st.text_input(t[lang]["p_id_label"], placeholder=t[lang]["p_id_placeholder"], key="bdi_pid")
+    st.divider(); st.write(t[lang]["q_title"]); st.info("請詳細閱讀每一組選項，並選出最能描述您 **過去兩星期（包括今天）** 感受的句子：")
+
+    # 1. 從 Supabase 抓取 BDI-21 的題目
+    questions_data = []
+    try:
+        if st.session_state.user:
+            session = st.session_state.supabase.auth.get_session()
+            if session and session.access_token: 
+                st.session_state.supabase.postgrest.auth(session.access_token)
+        else:
+            st.session_state.supabase.postgrest.auth(st.secrets["SUPABASE_KEY"])
+            
+        resp = st.session_state.supabase.table("question_items") \
+            .select("link_id, display_order, question_text, question_text_zh, value_type, type_config") \
+            .eq("questionnaire_id", "bdi-21") \
+            .order("display_order") \
+            .execute()
+        questions_data = resp.data
+    except Exception as e:
+        st.error(f"⚠️ 無法讀取 BDI-21 題目列表：{e}")
+
+    # 2. 動態渲染 BDI-21 題目與其獨立選項
+    user_answers = {}
+    if questions_data:
+        for q in questions_data:
+            link_id = q["link_id"]
+            order = q["display_order"]
+            
+            q_text = q["question_text_zh"] if lang == "zh" and q.get("question_text_zh") else q["question_text"]
+            prompt = f"**第 {order} 題：{q_text}**"
+
+            # 讀取每道題目在 type_config 中設定好的專屬 0-3 分選項敘述
+            config = q.get("type_config", [])
+            if isinstance(config, str):
+                import json
+                config = json.loads(config)
+
+            labels = [opt["label"] for opt in config]
+            score_lookup = {opt["label"]: opt["score"] for opt in config}
+
+            selected_label = st.radio(prompt, labels, index=None, key=f"bdi_q_{link_id}")
+            if selected_label:
+                user_answers[link_id] = score_lookup[selected_label]
+            else:
+                user_answers[link_id] = None
+
+    col_submit, col_go_hist = st.columns(2)
+    with col_submit:
+        if st.button("🚀 提交 BDI-II 報告", type="primary", use_container_width=True, key="bdi_submit_btn"):
+            if not patient_id.strip(): 
+                st.error(t[lang]["err_pid"])
+            elif None in user_answers.values() or len(user_answers) < len(questions_data): 
+                st.error("⚠️ 請確保所有 21 道 BDI-II 題目皆已勾選評估完畢！")
+            else:
+                total_score = sum(user_answers.values())
+                
+                # BDI-II 專屬臨床分數判讀 (0-63分)
+                if total_score <= 13:
+                    severity = "正常／極輕微情緒困擾 (0-13分)" if lang == "zh" else "Minimal depression (0-13 pts)"
+                elif total_score <= 19:
+                    severity = "輕度抑鬱 (14-19分)" if lang == "zh" else "Mild depression (14-19 pts)"
+                elif total_score <= 28:
+                    severity = "中度抑鬱 (20-28分)" if lang == "zh" else "Moderate depression (20-28 pts)"
+                else:
+                    severity = "重度抑鬱 (29-63分)" if lang == "zh" else "Severe depression (29-63 pts)"
+
+                try:
+                    # 避免 Session 快取卡死：訪客獨立 Client
+                    if not st.session_state.user:
+                        client_to_use = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+                    else:
+                        client_to_use = st.session_state.supabase
+                        session = st.session_state.supabase.auth.get_session()
+                        if session and session.access_token:
+                            st.session_state.supabase.postgrest.auth(session.access_token)
+
+                    current_user_id = st.session_state.user.id if st.session_state.user else None
+
+                    payload = {
+                        "user_id": current_user_id,
+                        "patient_id": patient_id.strip(),
+                        "questionnaire_id": "bdi-21",  # 寫入 BDI-21 識別碼
+                        "answers": user_answers,
+                        "total_score": int(total_score)
+                    }
+                    
+                    # 寫入 patient_responses 資料表
+                    client_to_use.table("patient_responses").insert(payload).execute()
+                    
+                    # 寫入 Session State 並切換至結果頁
+                    st.session_state.last_score = total_score
+                    st.session_state.last_severity = severity
+                    st.session_state.last_patient = patient_id.strip()
+                    st.session_state.current_page = "result"
+                    st.rerun()
+                except Exception as e: 
+                    st.error(f"❌ 儲存失敗：{e}")
+
+    with col_go_hist:
+        if st.session_state.user:
+            if st.button(t[lang]["view_hist_btn"], use_container_width=True, key="bdi_hist_btn"): 
+                st.session_state.current_page = "history"
+                st.rerun()
 
 # =========================================================================
 # 頁面 D：💧 每日飲水追蹤系統模組
