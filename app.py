@@ -149,6 +149,9 @@ t = {
         "submit_btn": "🚀 提交患者報告", "view_hist_btn": "📁 檢視所有患者歷史紀錄", "err_pid": "⚠️ 請務必輸入『患者編號』才能提交報告喔！", "err_q": "⚠️ 請確保所有 9 道題目皆已作答評估完畢！",
         "success_匯入": "🎉 患者數據已成功安全匯入資料庫！", "rep_title": "📝 本次評估結果報告", "metric_p": "被評估患者", "metric_s": "PHQ-9 總得分", "status_lbl": "📊 **目前情緒狀態評級：**", "btn_next": "🔄 登記下一筆新問卷", "btn_all_hist": "📁 查看全歷史紀錄清單",
         "hist_title": "📁 患者歷史評估總表", "tz_title": "### 🌍 時區設定", "tz_select": "請選擇您目前的所在地時區：", "hist_desc": "以下是您登記過的所有患者檢測紀錄：", "no_hist": "📭 目前尚無任何提交紀錄。", "col_time": "登記時間 (時區)", "col_pid": "患者編號/代碼", "col_score": "PHQ-9 總分", "col_status": "狀態評級", "search_placeholder": "🔍 輸入患者編號篩選個人紀錄",
+        # BDI21
+        "btn_bdi21": "📋 進入 BDI-II 貝克抑鬱量表",
+        "bdi21_title": "📋 BDI-II 貝克抑鬱量表 (21題)",
         # 飲水
         "water_title": "💧 每日飲水健康追蹤", "water_log_section": "### 📥 紀錄本次飲水", "water_label": "本次飲水量 (毫升 ml)", "water_notes": "備註說明 (選填)", "water_notes_placeholder": "例如：早起第一杯水...",
         "water_success": "🥤 成功紀錄！您剛剛喝了 {} ml 的水！", "water_err": "⚠️ 請輸入大於 0 的有效飲水量！", "water_review_section": "### 📊 歷史飲水追蹤與檢視", "water_col_time": "紀錄時間", "water_col_amount": "飲水量 (ml)", "water_col_notes": "備註", "water_no_data": "📭 您目前尚無 any 飲水紀錄，多喝水有益健康喔！", "water_total_today": "📅 今日累積總飲水量",
@@ -188,6 +191,8 @@ t = {
         "submit_btn": "🚀 Submit Patient Report", "view_hist_btn": "📁 View Patient History Logs", "err_pid": "⚠️ Please enter a Patient ID before submitting.", "err_q": "⚠️ Please ensure all 9 questions are answered.",
         "success_匯入": "🎉 Patient data has been securely uploaded to the database!", "rep_title": "📝 Assessment Report Summary", "metric_p": "Assessed Patient", "metric_s": "Total PHQ-9 Score", "status_lbl": "📊 **Current Severity Level:**", "btn_next": "🔄 Register Next Questionnaire", "btn_all_hist": "📁 View Full History Logs",
         "hist_title": "📁 Patient Assessment History Logs", "tz_title": "### 🌍 Timezone Settings", "tz_select": "Select your current local timezone:", "hist_desc": "Here are all the clinical records registered under your profile:", "no_hist": "📭 No records found.", "col_time": "Timestamp (Timezone)", "col_pid": "Patient ID", "col_score": "PHQ-9 Score", "col_status": "Severity Status", "search_placeholder": "🔍 Enter Patient ID to filter records",
+        # BDI21
+        "btn_bdi21": "📋 Access BDI-II Assessment System", "bdi21_title": "📋 BDI-II Depression Assessment",
         # 飲水
         "water_title": "💧 Daily Hydration Tracker", "water_log_section": "### 📥 Log Hydration", "water_label": "Amount of water (ml)", "water_notes": "Notes (Optional)", "water_notes_placeholder": "e.g., First cup in the morning...",
         "water_success": "🥤 Success! You just logged {} ml of water!", "water_err": "⚠️ Please enter a valid water amount greater than 0!", "water_review_section": "### 📊 Hydration History Review", "water_col_time": "Log Time", "water_col_amount": "Amount (ml)", "water_col_notes": "Notes", "water_no_data": "📭 No hydration data logged yet. Keep drinking water!", "water_total_today": "📅 Total Water Intake Today",
@@ -237,10 +242,17 @@ if st.session_state.current_page == "login":
                 st.error(t[lang]["login_fail"])
 
     # 🎯 免登入訪客問卷入口按鈕
+    # 🎯 供未登入訪客選擇的按鈕區
     st.divider()
-    if st.button(t[lang]["guest_btn"], use_container_width=True):
-        st.session_state.current_page = "quiz"
-        st.rerun()
+    col_guest1, col_guest2 = st.columns(2)
+    with col_guest1:
+        if st.button("📝 免登入填寫 PHQ-9", use_container_width=True):
+            st.session_state.current_page = "quiz"
+            st.rerun()
+    with col_guest2:
+        if st.button("📋 免登入填寫 BDI-II", use_container_width=True):
+            st.session_state.current_page = "bdi_quiz"
+            st.rerun()
 
 # =========================================================================
 # 頁面 B：中央主控面板
@@ -256,6 +268,8 @@ elif st.session_state.current_page == "dashboard":
     
     if perms.get("can_access_phq9"):
         active_modules.append({"label": f"📝\n{t[lang]['btn_phq9']}", "page": "quiz"})
+    active_modules.append({"label": f"📋\n{t[lang]['btn_bdi21']}", "page": "bdi_quiz"})
+    
     if perms.get("can_access_water"):
         active_modules.append({"label": f"💧\n{t[lang]['btn_water']}", "page": "water_module"})
     if perms.get("can_access_bujo"):
