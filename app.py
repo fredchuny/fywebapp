@@ -414,6 +414,76 @@ elif st.session_state.current_page == "result":
             st.rerun()
 
 # =========================================================================
+# 頁面 C-3：PHQ-9 歷史紀錄頁面 (讀取 patient_responses)
+# =========================================================================
+elif st.session_state.current_page == "history":
+    st.subheader(t[lang]["hist_title"])
+    
+    # 返回按鈕 (頂部與側邊欄)
+    if st.button(t[lang]["btn_back_dash"], key="top_back_hist"):
+        st.session_state.current_page = "quiz"
+        st.rerun()
+    if st.sidebar.button(t[lang]["btn_back_dash"], key="back_hist"): 
+        st.session_state.current_page = "quiz"
+        st.rerun()
+        
+    user_tz_name = st.selectbox(
+        t[lang]["tz_select"], 
+        options=["America/Toronto", "Asia/Hong_Kong", "UTC"] + sorted(pytz.common_timezones), 
+        index=0
+    )
+    local_tz = pytz.timezone(user_tz_name)
+    st.divider()
+
+    try:
+        session = st.session_state.supabase.auth.get_session()
+        if session: 
+            st.session_state.supabase.postgrest.auth(session.access_token)
+        
+        # 1. 查詢 patient_responses 中的 PHQ-9 紀錄
+        response = st.session_state.supabase.table("patient_responses") \
+            .select("created_at, patient_id, total_score, answers") \
+            .eq("questionnaire_id", "phq-9") \
+            .order("created_at", desc=True) \
+            .execute()
+            
+        records_data = response.data
+        
+        if not records_data: 
+            st.warning(t[lang]["no_hist"])
+        else:
+            table_list = []
+            for record in records_data:
+                raw_time = record.get("created_at", "")
+                try:
+                    dt_utc = datetime.datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
+                    dt_local = dt_utc.astimezone(local_tz)
+                    formatted_time = f"{dt_local.strftime('%Y-%m-%d %H:%M')} ({dt_local.strftime('%Z')})"
+                except Exception: 
+                    formatted_time = raw_time
+                
+                score = record.get("total_score", 0)
+                severity_status = get_severity(score, lang=lang)
+
+                table_list.append({
+                    t[lang]["col_time"]: formatted_time,
+                    t[lang]["col_pid"]: record.get("patient_id", "N/A"),
+                    t[lang]["col_score"]: f"{score} / 27",
+                    t[lang]["col_status"]: severity_status
+                })
+
+            df = pd.DataFrame(table_list)
+            search_query = st.text_input(t[lang]["search_placeholder"])
+            if search_query: 
+                df = df[df[t[lang]["col_pid"]].str.contains(search_query, case=False, na=False)]
+            
+            st.dataframe(df, use_container_width=True, hide_index=True)
+
+    except Exception as e: 
+        st.error(f"❌ 讀取歷史紀錄失敗：{e}")
+
+
+# =========================================================================
 # 頁面 D：💧 每日飲水追蹤系統模組
 # =========================================================================
 elif st.session_state.current_page == "water_module":
