@@ -288,21 +288,24 @@ elif st.session_state.current_page == "dashboard":
             st.button(t[lang]["btn_analytics"], use_container_width=True, disabled=True)
 
 # =========================================================================
-# 頁面 C-1：PHQ-9 問卷作答頁面 (動態讀取 question_items 資料表)
+# 頁面 C-1：PHQ-9 問卷作答頁面 (動態讀取 question_items 並安全寫入 patient_responses)
 # =========================================================================
 elif st.session_state.current_page == "quiz":
     if not st.session_state.permissions.get("can_access_phq9"): 
-        st.session_state.current_page = "dashboard"; st.rerun()
+        st.session_state.current_page = "dashboard"
+        st.rerun()
+        
     st.title(t[lang]["phq9_title"])
     if st.sidebar.button(t[lang]["btn_back_dash"], key="back_quiz"): 
-        st.session_state.current_page = "dashboard"; st.rerun()
+        st.session_state.current_page = "dashboard"
+        st.rerun()
         
     st.subheader(t[lang]["phq9_subtitle"])
     st.write(t[lang]["p_info_title"])
     patient_id = st.text_input(t[lang]["p_id_label"], placeholder=t[lang]["p_id_placeholder"])
     st.divider(); st.write(t[lang]["q_title"]); st.info(t[lang]["q_info"])
 
-    # 1. 🎯 直接從 Supabase 抓取 question_items 資料表的題目列表
+    # 1. 由 Supabase 抓取 question_items
     questions_data = []
     try:
         session = st.session_state.supabase.auth.get_session()
@@ -316,11 +319,10 @@ elif st.session_state.current_page == "quiz":
             .execute()
         questions_data = resp.data
     except Exception as e:
-        st.error(f"Error loading question items from database: {e}")
+        st.error(f"⚠️ 無法讀取題目列表：{e}")
 
-    # 2. 🎯 動態繪製題目表單
+    # 2. 動態渲染表單
     user_answers = {}
-    
     if questions_data:
         for q in questions_data:
             link_id = q["link_id"]
@@ -329,12 +331,9 @@ elif st.session_state.current_page == "quiz":
             config = q.get("type_config", [])
 
             if q["value_type"] == "choice":
-                # 從 type_config (JSONB) 提取選項標籤與分數
                 labels = [opt["label"] for opt in config]
                 selected_label = st.radio(prompt, labels, index=None, key=f"q_{link_id}")
-                
                 if selected_label:
-                    # 找出對應的分數 (0-3)
                     score = next(opt["score"] for opt in config if opt["label"] == selected_label)
                     user_answers[link_id] = score
                 else:
@@ -356,7 +355,6 @@ elif st.session_state.current_page == "quiz":
                     if session: 
                         st.session_state.supabase.postgrest.auth(session.access_token)
                     
-                    # 🎯 將動態收集到的答案 JSONB 寫入 patient_responses
                     payload = {
                         "user_id": st.session_state.user.id,
                         "patient_id": patient_id.strip(),
@@ -365,15 +363,18 @@ elif st.session_state.current_page == "quiz":
                         "total_score": total_score
                     }
                     
+                    # 寫入資料庫
                     st.session_state.supabase.table("patient_responses").insert(payload).execute()
                     
+                    # 安全寫入 Session State 並切換頁面
                     st.session_state.last_score = total_score
                     st.session_state.last_severity = severity
                     st.session_state.last_patient = patient_id.strip()
                     st.session_state.current_page = "result"
                     st.rerun()
                 except Exception as e: 
-                    st.error(f"Error saving assessment: {e}")
+                    # 🎯 如果寫入失敗，直接把 Error 顯現於螢幕上，防止無聲崩潰成空白頁
+                    st.error(f"❌ 儲存失敗，請檢查 RLS 權限或連線狀況：{e}")
 
     with col_go_hist:
         if st.button(t[lang]["view_hist_btn"], use_container_width=True): 
