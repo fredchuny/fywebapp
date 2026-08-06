@@ -288,7 +288,7 @@ elif st.session_state.current_page == "dashboard":
             st.button(t[lang]["btn_analytics"], use_container_width=True, disabled=True)
 
 # =========================================================================
-# 頁面 C-1：PHQ-9 問卷作答頁面 (動態讀取 question_items 並安全寫入 patient_responses)
+# 頁面 C-1：PHQ-9 問卷作答頁面 (動態雙語切換與資料庫讀取版)
 # =========================================================================
 elif st.session_state.current_page == "quiz":
     if not st.session_state.permissions.get("can_access_phq9"): 
@@ -305,7 +305,7 @@ elif st.session_state.current_page == "quiz":
     patient_id = st.text_input(t[lang]["p_id_label"], placeholder=t[lang]["p_id_placeholder"])
     st.divider(); st.write(t[lang]["q_title"]); st.info(t[lang]["q_info"])
 
-    # 1. 由 Supabase 抓取 question_items
+    # 1. 由 Supabase 抓取 question_items (包含英文與中文題目)
     questions_data = []
     try:
         session = st.session_state.supabase.auth.get_session()
@@ -313,7 +313,7 @@ elif st.session_state.current_page == "quiz":
             st.session_state.supabase.postgrest.auth(session.access_token)
             
         resp = st.session_state.supabase.table("question_items") \
-            .select("link_id, display_order, question_text, value_type, type_config") \
+            .select("link_id, display_order, question_text, question_text_zh, value_type, type_config") \
             .eq("questionnaire_id", "phq-9") \
             .order("display_order") \
             .execute()
@@ -321,21 +321,29 @@ elif st.session_state.current_page == "quiz":
     except Exception as e:
         st.error(f"⚠️ 無法讀取題目列表：{e}")
 
-    # 2. 動態渲染表單
+    # 2. 雙語選項標籤字典 (0–3 分)
+    opt_labels = {
+        "zh": [t["zh"]["opt_0"], t["zh"]["opt_1"], t["zh"]["opt_2"], t["zh"]["opt_3"]],
+        "en": [t["en"]["opt_0"], t["en"]["opt_1"], t["en"]["opt_2"], t["en"]["opt_3"]]
+    }
+    current_options = opt_labels[lang]
+    score_map = {current_options[i]: i for i in range(4)}
+
+    # 3. 動態渲染表單
     user_answers = {}
     if questions_data:
         for q in questions_data:
             link_id = q["link_id"]
             order = q["display_order"]
-            prompt = f"{order}. {q['question_text']}"
-            config = q.get("type_config", [])
+            
+            # 🎯 根據頂部切換的語言 (lang) 動態選擇題目文字
+            q_text = q["question_text_zh"] if lang == "zh" and q.get("question_text_zh") else q["question_text"]
+            prompt = f"{order}. {q_text}"
 
             if q["value_type"] == "choice":
-                labels = [opt["label"] for opt in config]
-                selected_label = st.radio(prompt, labels, index=None, key=f"q_{link_id}")
+                selected_label = st.radio(prompt, current_options, index=None, key=f"q_{link_id}")
                 if selected_label:
-                    score = next(opt["score"] for opt in config if opt["label"] == selected_label)
-                    user_answers[link_id] = score
+                    user_answers[link_id] = score_map[selected_label]
                 else:
                     user_answers[link_id] = None
 
@@ -366,14 +374,13 @@ elif st.session_state.current_page == "quiz":
                     # 寫入資料庫
                     st.session_state.supabase.table("patient_responses").insert(payload).execute()
                     
-                    # 安全寫入 Session State 並切換頁面
+                    # 安全寫入 Session State 並切換至結果頁
                     st.session_state.last_score = total_score
                     st.session_state.last_severity = severity
                     st.session_state.last_patient = patient_id.strip()
                     st.session_state.current_page = "result"
                     st.rerun()
                 except Exception as e: 
-                    # 🎯 如果寫入失敗，直接把 Error 顯現於螢幕上，防止無聲崩潰成空白頁
                     st.error(f"❌ 儲存失敗，請檢查 RLS 權限或連線狀況：{e}")
 
     with col_go_hist:
