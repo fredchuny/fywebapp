@@ -104,7 +104,7 @@ if "permissions" not in st.session_state: st.session_state.permissions = {}
 if "current_page" not in st.session_state: st.session_state.current_page = "login"
 
 # 🎯 路由防護：允許未登入存取的公開頁面
-PUBLIC_PAGES = ["login", "quiz", "result"]
+PUBLIC_PAGES = ["login", "quiz", "bdi_quiz", "result"]
 if st.session_state.user is None and st.session_state.current_page not in PUBLIC_PAGES:
     st.session_state.current_page = "login"
 
@@ -237,20 +237,20 @@ if st.session_state.current_page == "login":
                 else:
                     st.session_state.permissions = {"can_access_phq9": False, "can_access_water": False, "can_access_bujo": False, "can_access_food_picker": False, "can_access_gad7": False, "can_access_analytics": False}
                 
-                st.session_state.current_page = "dashboard"; st.rerun()
+                st.session_state.current_page = "dashboard"
+                st.rerun()
             except Exception:
                 st.error(t[lang]["login_fail"])
 
-    # 🎯 免登入訪客問卷入口按鈕
-    # 🎯 供未登入訪客選擇的按鈕區
+    # 🎯 免登入訪客按鈕區塊
     st.divider()
     col_guest1, col_guest2 = st.columns(2)
     with col_guest1:
-        if st.button("📝 免登入填寫 PHQ-9", use_container_width=True):
+        if st.button("📝 免登入填寫 PHQ-9", use_container_width=True, key="guest_phq9_btn"):
             st.session_state.current_page = "quiz"
             st.rerun()
     with col_guest2:
-        if st.button("📋 免登入填寫 BDI-II", use_container_width=True):
+        if st.button("📋 免登入填寫 BDI-II", use_container_width=True, key="guest_bdi_btn"):
             st.session_state.current_page = "bdi_quiz"
             st.rerun()
 
