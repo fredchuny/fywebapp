@@ -366,11 +366,14 @@ elif st.session_state.current_page == "quiz":
                 severity = get_severity(total_score, lang=lang)
 
                 try:
-                    session = st.session_state.supabase.auth.get_session()
-                    if session: 
-                        st.session_state.supabase.postgrest.auth(session.access_token)
+                    # 🎯 關鍵修正：若未登入，明確將 Postgrest Auth Token 清空為 None (確保 Supabase 認出是 anon)
+                    if st.session_state.user:
+                        session = st.session_state.supabase.auth.get_session()
+                        if session and session.access_token:
+                            st.session_state.supabase.postgrest.auth(session.access_token)
+                    else:
+                        st.session_state.supabase.postgrest.auth(None)
                     
-                    # 🎯 訪客提交時 user_id 填入 None
                     current_user_id = st.session_state.user.id if st.session_state.user else None
 
                     payload = {
