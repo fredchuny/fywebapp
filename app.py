@@ -288,12 +288,14 @@ elif st.session_state.current_page == "dashboard":
             st.button(t[lang]["btn_analytics"], use_container_width=True, disabled=True)
 
 # =========================================================================
-# 頁面 C-1：PHQ-9 問卷作答頁面
+# 頁面 C-1：PHQ-9 問卷作答頁面 (已更新為 patient_responses JSONB 結構)
 # =========================================================================
 elif st.session_state.current_page == "quiz":
-    if not st.session_state.permissions.get("can_access_phq9"): st.session_state.current_page = "dashboard"; st.rerun()
+    if not st.session_state.permissions.get("can_access_phq9"): 
+        st.session_state.current_page = "dashboard"; st.rerun()
     st.title(t[lang]["phq9_title"])
-    if st.sidebar.button(t[lang]["btn_back_dash"], key="back_quiz"): st.session_state.current_page = "dashboard"; st.rerun()
+    if st.sidebar.button(t[lang]["btn_back_dash"], key="back_quiz"): 
+        st.session_state.current_page = "dashboard"; st.rerun()
         
     st.subheader(t[lang]["phq9_subtitle"])
     st.write(t[lang]["p_info_title"])
@@ -304,9 +306,30 @@ elif st.session_state.current_page == "quiz":
     score_map = {options[0]: 0, options[1]: 1, options[2]: 2, options[3]: 3}
 
     q_texts = {
-        "zh": ["1. 做任何事情都提不起勁或沒有樂趣？", "2. 感到心情低落、沮喪或絕望？", "3. 入睡困難、易醒或睡得太多？", "4. 覺得疲倦或沒有活力？", "5. 胃口不好、食慾不振或吃得太多？", "6. 覺得自己很糟、或覺得自己很失敗、或讓家人失望？", "7. 專注於事物上有困難，例如看報紙或看電視？", "8. 動作或說話速度慢到旁人已注意到？或者相反：煩躁不安、動來動去，比平常更易走動？", "9. 有「想要一了百了」或「用某種方式傷害自己」的想法？"],
-        "en": ["1. Little interest or pleasure in doing things?", "2. Feeling down, depressed, or hopeless?", "3. Trouble falling or staying asleep, or sleeping too much?", "4. Feeling tired or having little energy?", "5. Poor appetite or overeating?", "6. Feeling bad about yourself — or that you are a failure or have let yourself or your family down?", "7. Trouble concentrating on things, such as reading the newspaper or watching television?", "8. Moving or speaking so slowly that other people could have noticed? Or the opposite — being so fidgety or restless that you have been moving around a lot more than usual?", "9. Thoughts that you would be better off dead, or of hurting yourself in some way?"]
+        "zh": [
+            "1. 做任何事情都提不起勁或沒有樂趣？", 
+            "2. 感到心情低落、沮喪或絕望？", 
+            "3. 入睡困難、易醒或睡得太多？", 
+            "4. 覺得疲倦或沒有活力？", 
+            "5. 胃口不好、食慾不振或吃得太多？", 
+            "6. 覺得自己很糟、或覺得自己很失敗、或讓家人失望？", 
+            "7. 專注於事物上有困難，例如看報紙或看電視？", 
+            "8. 動作或說話速度慢到旁人已注意到？或者相反：煩躁不安、動來動去，比平常更易走動？", 
+            "9. 有「想要一了百了」或「用某種方式傷害自己」的想法？"
+        ],
+        "en": [
+            "1. Little interest or pleasure in doing things?", 
+            "2. Feeling down, depressed, or hopeless?", 
+            "3. Trouble falling or staying asleep, or sleeping too much?", 
+            "4. Feeling tired or having little energy?", 
+            "5. Poor appetite or overeating?", 
+            "6. Feeling bad about yourself — or that you are a failure or have let yourself or your family down?", 
+            "7. Trouble concentrating on things, such as reading the newspaper or watching television?", 
+            "8. Moving or speaking so slowly that other people could have noticed? Or the opposite — being so fidgety or restless that you have been moving around a lot more than usual?", 
+            "9. Thoughts that you would be better off dead, or of hurting yourself in some way?"
+        ]
     }
+
     q1 = st.radio(q_texts[lang][0], options, index=None)
     q2 = st.radio(q_texts[lang][1], options, index=None)
     q3 = st.radio(q_texts[lang][2], options, index=None)
@@ -320,49 +343,82 @@ elif st.session_state.current_page == "quiz":
     col_submit, col_go_hist = st.columns(2)
     with col_submit:
         if st.button(t[lang]["submit_btn"], type="primary", use_container_width=True):
-            if not patient_id.strip(): st.error(t[lang]["err_pid"])
-            elif None in [q1, q2, q3, q4, q5, q6, q7, q8, q9]: st.error(t[lang]["err_q"])
+            if not patient_id.strip(): 
+                st.error(t[lang]["err_pid"])
+            elif None in [q1, q2, q3, q4, q5, q6, q7, q8, q9]: 
+                st.error(t[lang]["err_q"])
             else:
                 scores = [score_map.get(q, 0) for q in [q1, q2, q3, q4, q5, q6, q7, q8, q9]]
                 total_score = sum(scores)
                 severity = get_severity(total_score, lang=lang)
+                
+                # 🎯 建立新結構的 JSONB answers 字典
+                answers_dict = {
+                    f"q{i+1}": scores[i] for i in range(9)
+                }
+
                 try:
                     session = st.session_state.supabase.auth.get_session()
-                    if session: st.session_state.supabase.postgrest.auth(session.access_token)
-                    payload = {"user_id": st.session_state.user.id, "patient_id": patient_id.strip(), "q1": scores[0], "q2": scores[1], "q3": scores[2], "q4": scores[3], "q5": scores[4], "q6": scores[5], "q7": scores[6], "q8": scores[7], "q9": scores[8], "total_score": total_score, "severity": severity}
-                    st.session_state.supabase.table("phq_responses").insert(payload).execute()
-                    st.session_state.last_score = total_score; st.session_state.last_severity = severity; st.session_state.last_patient = patient_id.strip(); st.session_state.current_page = "result"; st.rerun()
-                except Exception as e: st.error(f"Error: {e}")
+                    if session: 
+                        st.session_state.supabase.postgrest.auth(session.access_token)
+                    
+                    # 🎯 寫入新的 patient_responses 資料表
+                    payload = {
+                        "user_id": st.session_state.user.id,
+                        "patient_id": patient_id.strip(),
+                        "questionnaire_id": "phq-9",
+                        "answers": answers_dict,           # 自動轉換為 JSONB
+                        "total_score": total_score
+                    }
+                    
+                    st.session_state.supabase.table("patient_responses").insert(payload).execute()
+                    
+                    # 存入 Session State 供結果頁面顯示
+                    st.session_state.last_score = total_score
+                    st.session_state.last_severity = severity
+                    st.session_state.last_patient = patient_id.strip()
+                    st.session_state.current_page = "result"
+                    st.rerun()
+                except Exception as e: 
+                    st.error(f"Error saving assessment: {e}")
+
     with col_go_hist:
-        if st.button(t[lang]["view_hist_btn"], use_container_width=True): st.session_state.current_page = "history"; st.rerun()
+        if st.button(t[lang]["view_hist_btn"], use_container_width=True): 
+            st.session_state.current_page = "history"
+            st.rerun()
 
 # =========================================================================
-# 頁面 C-2：PHQ-9 結果與 C-3 歷史紀錄頁面
+# 頁面 C-2：PHQ-9 歷史紀錄頁面 (讀取 patient_responses 資料表)
 # =========================================================================
-elif st.session_state.current_page == "result":
-    st.balloons(); st.success(t[lang]['success_匯入'])
-    st.subheader(t[lang]["rep_title"])
-    col_p, col_s = st.columns(2)
-    with col_p: st.metric(label=t[lang]["metric_p"], value=st.session_state.last_patient)
-    with col_s: st.metric(label=t[lang]["metric_s"], value=f"{st.session_state.last_score} / 27")
-    st.info(f"{t[lang]['status_lbl']} {st.session_state.last_severity}"); st.divider()
-    col_again, col_hist = st.columns(2)
-    with col_again:
-        if st.button(t[lang]["btn_next"], type="primary", use_container_width=True): st.session_state.current_page = "quiz"; st.rerun()
-    with col_hist:
-        if st.button(t[lang]["btn_all_hist"], use_container_width=True): st.session_state.current_page = "history"; st.rerun()
-
 elif st.session_state.current_page == "history":
     st.subheader(t[lang]["hist_title"])
-    if st.sidebar.button(t[lang]["btn_back_dash"], key="back_hist"): st.session_state.current_page = "quiz"; st.rerun()
-    user_tz_name = st.selectbox(t[lang]["tz_select"], options=["America/Toronto", "Asia/Hong_Kong", "UTC"] + sorted(pytz.common_timezones), index=0)
-    local_tz = pytz.timezone(user_tz_name); st.divider()
+    if st.sidebar.button(t[lang]["btn_back_dash"], key="back_hist"): 
+        st.session_state.current_page = "quiz"; st.rerun()
+        
+    user_tz_name = st.selectbox(
+        t[lang]["tz_select"], 
+        options=["America/Toronto", "Asia/Hong_Kong", "UTC"] + sorted(pytz.common_timezones), 
+        index=0
+    )
+    local_tz = pytz.timezone(user_tz_name)
+    st.divider()
+
     try:
         session = st.session_state.supabase.auth.get_session()
-        if session: st.session_state.supabase.postgrest.auth(session.access_token)
-        response = st.session_state.supabase.table("phq_responses").select("created_at, patient_id, total_score, severity").eq("user_id", st.session_state.user.id).order("created_at", desc=True).execute()
+        if session: 
+            st.session_state.supabase.postgrest.auth(session.access_token)
+        
+        # 🎯 查詢新資料表 patient_responses (篩選 questionnaire_id = 'phq-9')
+        response = st.session_state.supabase.table("patient_responses") \
+            .select("created_at, patient_id, total_score, answers") \
+            .eq("user_id", st.session_state.user.id) \
+            .eq("questionnaire_id", "phq-9") \
+            .order("created_at", desc=True) \
+            .execute()
+            
         records_data = response.data
-        if not records_data: st.warning(t[lang]["no_hist"])
+        if not records_data: 
+            st.warning(t[lang]["no_hist"])
         else:
             table_list = []
             for record in records_data:
@@ -371,13 +427,29 @@ elif st.session_state.current_page == "history":
                     dt_utc = datetime.datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
                     dt_local = dt_utc.astimezone(local_tz)
                     formatted_time = f"{dt_local.strftime('%Y-%m-%d %H:%M')} ({dt_local.strftime('%Z')})"
-                except Exception: formatted_time = raw_time
-                table_list.append({t[lang]["col_time"]: formatted_time, t[lang]["col_pid"]: record.get("patient_id", "N/A"), t[lang]["col_score"]: f"{record.get('total_score')} / 27", t[lang]["col_status"]: record.get("severity")})
+                except Exception: 
+                    formatted_time = raw_time
+                
+                score = record.get("total_score", 0)
+                # 🎯 動態根據總分計算當前語言的嚴重程度評級
+                severity_status = get_severity(score, lang=lang)
+
+                table_list.append({
+                    t[lang]["col_time"]: formatted_time,
+                    t[lang]["col_pid"]: record.get("patient_id", "N/A"),
+                    t[lang]["col_score"]: f"{score} / 27",
+                    t[lang]["col_status"]: severity_status
+                })
+
             df = pd.DataFrame(table_list)
             search_query = st.text_input(t[lang]["search_placeholder"])
-            if search_query: df = df[df[t[lang]["col_pid"]].str.contains(search_query, case=False, na=False)]
+            if search_query: 
+                df = df[df[t[lang]["col_pid"]].str.contains(search_query, case=False, na=False)]
+            
             st.dataframe(df, use_container_width=True, hide_index=True)
-    except Exception as e: st.error(f"Error: {e}")
+
+    except Exception as e: 
+        st.error(f"Error loading history: {e}")
 
 # =========================================================================
 # 頁面 D：💧 每日飲水追蹤系統模組
