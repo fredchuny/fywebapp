@@ -290,17 +290,17 @@ elif st.session_state.current_page == "dashboard":
             st.button(t[lang]["btn_analytics"], use_container_width=True, disabled=True)
 
 # =========================================================================
-# 頁面 C-1：PHQ-9 問卷作答頁面 (支援未登入訪客作答)
+# 頁面 C-1：PHQ-9 問卷作答頁面 (動態雙語切換 + 支援未登入訪客作答版)
 # =========================================================================
 elif st.session_state.current_page == "quiz":
-    # 🎯 只有在「已登入」且「權限關閉」的情況下才阻擋；未登入訪客放行
+    # 🎯 只有在「已登入」且「權限關閉」的情況下才阻擋；未登入訪客預設放行
     if st.session_state.user and not st.session_state.permissions.get("can_access_phq9", True): 
         st.session_state.current_page = "dashboard"
         st.rerun()
         
     st.title(t[lang]["phq9_title"])
     
-    # 🎯 動態返回按鈕目標
+    # 🎯 動態返回按鈕目標 (已登入回 dashboard，未登入回 login)
     back_btn_label = t[lang]["btn_back_dash"] if st.session_state.user else t[lang]["btn_back_login"]
     back_target = "dashboard" if st.session_state.user else "login"
     
@@ -316,9 +316,13 @@ elif st.session_state.current_page == "quiz":
     # 1. 由 Supabase 抓取 question_items (包含英文與中文題目)
     questions_data = []
     try:
-        session = st.session_state.supabase.auth.get_session()
-        if session: 
-            st.session_state.supabase.postgrest.auth(session.access_token)
+        # 確保查詢前帶有正確的憑證
+        if st.session_state.user:
+            session = st.session_state.supabase.auth.get_session()
+            if session and session.access_token: 
+                st.session_state.supabase.postgrest.auth(session.access_token)
+        else:
+            st.session_state.supabase.postgrest.auth(st.secrets["SUPABASE_KEY"])
             
         resp = st.session_state.supabase.table("question_items") \
             .select("link_id, display_order, question_text, question_text_zh, value_type, type_config") \
@@ -344,6 +348,7 @@ elif st.session_state.current_page == "quiz":
             link_id = q["link_id"]
             order = q["display_order"]
             
+            # 🎯 根據頁面頂部選擇的語言 (lang) 動態顯示題目
             q_text = q["question_text_zh"] if lang == "zh" and q.get("question_text_zh") else q["question_text"]
             prompt = f"{order}. {q_text}"
 
@@ -366,13 +371,14 @@ elif st.session_state.current_page == "quiz":
                 severity = get_severity(total_score, lang=lang)
 
                 try:
-                    # 🎯 關鍵修正：若未登入，明確將 Postgrest Auth Token 清空為 None (確保 Supabase 認出是 anon)
+                    # 🎯 關鍵驗證與憑證切換：
+                    # 已登入帶入 user token；未登入恢復使用 SUPABASE_KEY (anon token)
                     if st.session_state.user:
                         session = st.session_state.supabase.auth.get_session()
                         if session and session.access_token:
                             st.session_state.supabase.postgrest.auth(session.access_token)
                     else:
-                        st.session_state.supabase.postgrest.auth(None)
+                        st.session_state.supabase.postgrest.auth(st.secrets["SUPABASE_KEY"])
                     
                     current_user_id = st.session_state.user.id if st.session_state.user else None
 
@@ -397,7 +403,7 @@ elif st.session_state.current_page == "quiz":
                     st.error(f"❌ 儲存失敗，請檢查 RLS 權限或連線狀況：{e}")
 
     with col_go_hist:
-        # 僅限已登入工作人員查看歷史紀錄
+        # 僅在已登入狀態下顯示「檢視歷史紀錄」按鈕
         if st.session_state.user:
             if st.button(t[lang]["view_hist_btn"], use_container_width=True): 
                 st.session_state.current_page = "history"
