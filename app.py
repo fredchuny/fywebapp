@@ -382,68 +382,36 @@ elif st.session_state.current_page == "quiz":
             st.rerun()
 
 # =========================================================================
-# 頁面 C-2：PHQ-9 歷史紀錄頁面 (讀取 patient_responses 資料表)
+# 頁面 C-2：PHQ-9 評估結果頁面
 # =========================================================================
-elif st.session_state.current_page == "history":
-    st.subheader(t[lang]["hist_title"])
-    if st.sidebar.button(t[lang]["btn_back_dash"], key="back_hist"): 
-        st.session_state.current_page = "quiz"; st.rerun()
+elif st.session_state.current_page == "result":
+    # 預防 Session 變數遺失的保護機制
+    p_name = st.session_state.get("last_patient", "N/A")
+    p_score = st.session_state.get("last_score", 0)
+    p_severity = st.session_state.get("last_severity", get_severity(p_score, lang=lang))
+
+    st.balloons()
+    st.success(t[lang]['success_匯入'])
+    st.subheader(t[lang]["rep_title"])
+    
+    col_p, col_s = st.columns(2)
+    with col_p: 
+        st.metric(label=t[lang]["metric_p"], value=p_name)
+    with col_s: 
+        st.metric(label=t[lang]["metric_s"], value=f"{p_score} / 27")
         
-    user_tz_name = st.selectbox(
-        t[lang]["tz_select"], 
-        options=["America/Toronto", "Asia/Hong_Kong", "UTC"] + sorted(pytz.common_timezones), 
-        index=0
-    )
-    local_tz = pytz.timezone(user_tz_name)
+    st.info(f"{t[lang]['status_lbl']} {p_severity}")
     st.divider()
-
-    try:
-        session = st.session_state.supabase.auth.get_session()
-        if session: 
-            st.session_state.supabase.postgrest.auth(session.access_token)
-        
-        # 🎯 查詢新資料表 patient_responses (篩選 questionnaire_id = 'phq-9')
-        response = st.session_state.supabase.table("patient_responses") \
-            .select("created_at, patient_id, total_score, answers") \
-            .eq("user_id", st.session_state.user.id) \
-            .eq("questionnaire_id", "phq-9") \
-            .order("created_at", desc=True) \
-            .execute()
-            
-        records_data = response.data
-        if not records_data: 
-            st.warning(t[lang]["no_hist"])
-        else:
-            table_list = []
-            for record in records_data:
-                raw_time = record.get("created_at", "")
-                try:
-                    dt_utc = datetime.datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
-                    dt_local = dt_utc.astimezone(local_tz)
-                    formatted_time = f"{dt_local.strftime('%Y-%m-%d %H:%M')} ({dt_local.strftime('%Z')})"
-                except Exception: 
-                    formatted_time = raw_time
-                
-                score = record.get("total_score", 0)
-                # 🎯 動態根據總分計算當前語言的嚴重程度評級
-                severity_status = get_severity(score, lang=lang)
-
-                table_list.append({
-                    t[lang]["col_time"]: formatted_time,
-                    t[lang]["col_pid"]: record.get("patient_id", "N/A"),
-                    t[lang]["col_score"]: f"{score} / 27",
-                    t[lang]["col_status"]: severity_status
-                })
-
-            df = pd.DataFrame(table_list)
-            search_query = st.text_input(t[lang]["search_placeholder"])
-            if search_query: 
-                df = df[df[t[lang]["col_pid"]].str.contains(search_query, case=False, na=False)]
-            
-            st.dataframe(df, use_container_width=True, hide_index=True)
-
-    except Exception as e: 
-        st.error(f"Error loading history: {e}")
+    
+    col_again, col_hist = st.columns(2)
+    with col_again:
+        if st.button(t[lang]["btn_next"], type="primary", use_container_width=True): 
+            st.session_state.current_page = "quiz"
+            st.rerun()
+    with col_hist:
+        if st.button(t[lang]["btn_all_hist"], use_container_width=True): 
+            st.session_state.current_page = "history"
+            st.rerun()
 
 # =========================================================================
 # 頁面 D：💧 每日飲水追蹤系統模組
